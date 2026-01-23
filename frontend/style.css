@@ -1,0 +1,147 @@
+:root {
+    --bg: #0f0f0f;
+    --card: #181818;
+    --text: #ffffff;
+    --subtext: #b3b3b3;
+    --accent: #1db954;
+    --input: #222;
+}
+
+[data-theme="light"] {
+    --bg: #f2f2f2;
+    --card: #ffffff;
+    --text: #121212;
+    --subtext: #555;
+    --input: #eaeaea;
+}
+
+* {
+    box-sizing: border-box;
+    font-family: Inter, system-ui, sans-serif;
+}
+
+body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--text);
+    height: 100vh;
+}
+
+.app {
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+}
+
+.header {
+    padding: 16px 24px;
+    display: flex;
+    justify-content: space-between;
+}
+
+.controls button {
+    margin-left: 8px;
+    border: none;
+    border-radius: 8px;
+    padding: 6px 10px;
+    cursor: pointer;
+    background: var(--card);
+    color: var(--text);
+}
+
+.tabs {
+    display: flex;
+    justify-content: center;
+    gap: 10px;
+    margin-bottom: 10px;
+}
+
+.tab {
+    background: transparent;
+    border: none;
+    color: var(--subtext);
+    padding: 8px 14px;
+    cursor: pointer;
+    border-bottom: 2px solid transparent;
+}
+
+.tab.active {
+    color: var(--text);
+    border-color: var(--accent);
+}
+
+.content {
+    flex: 1;
+    display: flex;
+    justify-content: center;
+}
+
+.card {
+    width: 420px;
+    background: var(--card);
+    padding: 26px;
+    border-radius: 20px;
+    box-shadow: 0 20px 50px rgba(0, 0, 0, 0.25);
+}
+
+.tab-content {
+    display: none;
+}
+
+.tab-content.active {
+    display: block;
+}
+
+.input-group {
+    display: flex;
+    gap: 10px;
+    margin-bottom: 20px;
+}
+
+.input-group input {
+    flex: 1;
+    padding: 12px;
+    border-radius: 10px;
+    border: none;
+    background: var(--input);
+    color: var(--text);
+}
+
+.input-group button {
+    padding: 12px 16px;
+    border-radius: 10px;
+    border: none;
+    cursor: pointer;
+    background: var(--accent);
+    color: #000;
+    font-weight: 600;
+}
+
+.player.hidden {
+    display: none;
+}
+
+.cover {
+    height: 180px;
+    border-radius: 14px;
+    background: linear-gradient(135deg, #666, #999);
+    margin-bottom: 14px;
+}
+
+.playlist {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.playlist-item {
+    padding: 12px;
+    border-radius: 10px;
+    background: var(--input);
+    cursor: pointer;
+}
+
+.playlist-item:hover {
+    background: var(--accent);
+    color: #000;
+}

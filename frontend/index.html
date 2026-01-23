@@ -1,0 +1,79 @@
+<!DOCTYPE html>
+<html lang="ru" data-theme="dark">
+
+<head>
+    <meta charset="UTF-8">
+    <title>Music Resolver</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+
+<body>
+    <div class="app">
+
+        <header class="header">
+            <div class="logo">🎵 Music Resolver</div>
+            <div class="controls">
+                <button id="langToggle">EN</button>
+                <button id="themeToggle">🌙</button>
+            </div>
+        </header>
+
+        <div class="tabs">
+            <button class="tab active" data-tab="listen" id="tabListen">
+                Прослушивание
+            </button>
+            <button class="tab" data-tab="playlists" id="tabPlaylists">
+                Плейлисты
+            </button>
+        </div>
+
+        <main class="content">
+
+            <!-- LISTEN TAB -->
+            <section class="card tab-content active" id="listen">
+                <h1 id="listenTitle">Прослушивание трека</h1>
+                <p id="listenSubtitle">
+                    Вставьте ссылку на трек
+                </p>
+
+                <div class="input-group">
+                    <input id="trackLink" type="text" placeholder="Ссылка на трек">
+                    <button id="loadTrack">Загрузить</button>
+                </div>
+
+                <div class="player hidden" id="player">
+                    <div class="cover"></div>
+                    <div class="track-info">
+                        <div class="track-title" id="trackTitle"></div>
+                        <div class="track-artist" id="trackArtist"></div>
+                    </div>
+                    <audio controls id="audio"></audio>
+                </div>
+            </section>
+
+            <!-- PLAYLIST TAB -->
+            <section class="card tab-content" id="playlists">
+                <h1 id="playlistTitle">Плейлисты</h1>
+                <p id="playlistSubtitle">
+                    Добавьте плейлист по ссылке
+                </p>
+
+                <div class="input-group">
+                    <input id="playlistLink" type="text" placeholder="Ссылка на плейлист">
+                    <button id="addPlaylist">Добавить</button>
+                </div>
+
+                <div class="playlist">
+                    <div class="playlist-item">🎵 Demo Track 1</div>
+                    <div class="playlist-item">🎵 Demo Track 2</div>
+                    <div class="playlist-item">🎵 Demo Track 3</div>
+                </div>
+            </section>
+
+        </main>
+    </div>
+
+    <script src="app.js"></script>
+</body>
+
+</html>
