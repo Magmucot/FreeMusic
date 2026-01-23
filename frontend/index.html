@@ -4,72 +4,73 @@
 <head>
     <meta charset="UTF-8">
     <title>Music Resolver</title>
+
+    <!-- CSP-ready -->
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; media-src 'self';">
+
     <link rel="stylesheet" href="style.css">
 </head>
 
 <body>
     <div class="app">
 
-        <header class="header">
-            <div class="logo">🎵 Music Resolver</div>
-            <div class="controls">
+        <aside class="sidebar">
+            <div class="logo">🎵 Resolver</div>
+
+            <nav>
+                <button class="nav-item active" data-tab="listen">🎧 Listen</button>
+                <button class="nav-item" data-tab="playlists">📂 Playlists</button>
+            </nav>
+        </aside>
+
+        <main class="main">
+            <header class="topbar">
                 <button id="langToggle">EN</button>
                 <button id="themeToggle">🌙</button>
-            </div>
-        </header>
+            </header>
 
-        <div class="tabs">
-            <button class="tab active" data-tab="listen" id="tabListen">
-                Прослушивание
-            </button>
-            <button class="tab" data-tab="playlists" id="tabPlaylists">
-                Плейлисты
-            </button>
-        </div>
-
-        <main class="content">
-
-            <!-- LISTEN TAB -->
-            <section class="card tab-content active" id="listen">
-                <h1 id="listenTitle">Прослушивание трека</h1>
-                <p id="listenSubtitle">
-                    Вставьте ссылку на трек
-                </p>
+            <!-- LISTEN -->
+            <section id="listen" class="view active">
+                <h1 id="listenTitle"></h1>
+                <p id="listenSubtitle"></p>
 
                 <div class="input-group">
-                    <input id="trackLink" type="text" placeholder="Ссылка на трек">
-                    <button id="loadTrack">Загрузить</button>
+                    <input id="trackInput" type="text" placeholder="">
+                    <button id="loadTrack">Load</button>
                 </div>
+
+                <div class="loader hidden" id="loader">🔍 Resolving link…</div>
 
                 <div class="player hidden" id="player">
                     <div class="cover"></div>
+
                     <div class="track-info">
-                        <div class="track-title" id="trackTitle"></div>
-                        <div class="track-artist" id="trackArtist"></div>
+                        <strong id="trackTitle"></strong>
+                        <span id="trackArtist"></span>
                     </div>
+
+                    <div class="waveform"></div>
+
                     <audio controls id="audio"></audio>
                 </div>
             </section>
 
-            <!-- PLAYLIST TAB -->
-            <section class="card tab-content" id="playlists">
-                <h1 id="playlistTitle">Плейлисты</h1>
-                <p id="playlistSubtitle">
-                    Добавьте плейлист по ссылке
-                </p>
+            <!-- PLAYLISTS -->
+            <section id="playlists" class="view">
+                <h1 id="playlistTitle"></h1>
+                <p id="playlistSubtitle"></p>
 
                 <div class="input-group">
-                    <input id="playlistLink" type="text" placeholder="Ссылка на плейлист">
-                    <button id="addPlaylist">Добавить</button>
+                    <input id="playlistInput" type="text" placeholder="">
+                    <button id="addPlaylist">Add</button>
                 </div>
 
-                <div class="playlist">
-                    <div class="playlist-item">🎵 Demo Track 1</div>
-                    <div class="playlist-item">🎵 Demo Track 2</div>
-                    <div class="playlist-item">🎵 Demo Track 3</div>
+                <div class="playlist" id="playlist">
+                    <div class="track-item" draggable="true">Demo Track 1</div>
+                    <div class="track-item" draggable="true">Demo Track 2</div>
+                    <div class="track-item" draggable="true">Demo Track 3</div>
                 </div>
             </section>
-
         </main>
     </div>
 

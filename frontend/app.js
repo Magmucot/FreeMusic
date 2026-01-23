@@ -1,23 +1,27 @@
+"use strict";
+
+const safeText = text => text.replace(/[<>]/g, "");
+
 const texts = {
     ru: {
-        listen: "Прослушивание",
-        playlists: "Плейлисты",
-        listenTitle: "Прослушивание трека",
+        listenTitle: "Прослушивание",
         listenSubtitle: "Вставьте ссылку на трек",
         playlistTitle: "Плейлисты",
-        playlistSubtitle: "Добавьте плейлист по ссылке",
+        playlistSubtitle: "Добавляйте плейлисты по ссылке",
         track: "Демо-трек",
-        artist: "Исполнитель"
+        artist: "Исполнитель",
+        placeholderTrack: "Ссылка на трек",
+        placeholderPlaylist: "Ссылка на плейлист"
     },
     en: {
-        listen: "Listen",
-        playlists: "Playlists",
-        listenTitle: "Track playback",
-        listenSubtitle: "Paste a track link",
+        listenTitle: "Listening",
+        listenSubtitle: "Paste track link",
         playlistTitle: "Playlists",
-        playlistSubtitle: "Add playlist by link",
+        playlistSubtitle: "Add playlists by link",
         track: "Demo Track",
-        artist: "Artist"
+        artist: "Artist",
+        placeholderTrack: "Track link",
+        placeholderPlaylist: "Playlist link"
     }
 };
 
@@ -28,12 +32,12 @@ const qs = id => document.getElementById(id);
 
 function applyLang() {
     const t = texts[lang];
-    qs("tabListen").textContent = t.listen;
-    qs("tabPlaylists").textContent = t.playlists;
     qs("listenTitle").textContent = t.listenTitle;
     qs("listenSubtitle").textContent = t.listenSubtitle;
     qs("playlistTitle").textContent = t.playlistTitle;
     qs("playlistSubtitle").textContent = t.playlistSubtitle;
+    qs("trackInput").placeholder = t.placeholderTrack;
+    qs("playlistInput").placeholder = t.placeholderPlaylist;
 }
 
 document.getElementById("langToggle").onclick = () => {
@@ -46,22 +50,26 @@ document.getElementById("themeToggle").onclick = () => {
     document.documentElement.setAttribute("data-theme", theme);
 };
 
-document.querySelectorAll(".tab").forEach(tab => {
-    tab.onclick = () => {
-        document.querySelectorAll(".tab, .tab-content")
+document.querySelectorAll(".nav-item").forEach(btn => {
+    btn.onclick = () => {
+        document.querySelectorAll(".nav-item, .view")
             .forEach(el => el.classList.remove("active"));
-
-        tab.classList.add("active");
-        document.getElementById(tab.dataset.tab).classList.add("active");
+        btn.classList.add("active");
+        qs(btn.dataset.tab).classList.add("active");
     };
 });
 
 qs("loadTrack").onclick = () => {
-    qs("trackTitle").textContent = texts[lang].track;
-    qs("trackArtist").textContent = texts[lang].artist;
-    qs("audio").src = "demo.mp3";
-    qs("player").classList.remove("hidden");
-    qs("audio").play();
+    qs("loader").classList.remove("hidden");
+
+    setTimeout(() => {
+        qs("loader").classList.add("hidden");
+        qs("trackTitle").textContent = texts[lang].track;
+        qs("trackArtist").textContent = texts[lang].artist;
+        qs("audio").src = "demo.mp3";
+        qs("player").classList.remove("hidden");
+        qs("audio").play();
+    }, 800);
 };
 
 applyLang();

@@ -1,18 +1,18 @@
 :root {
-    --bg: #0f0f0f;
-    --card: #181818;
-    --text: #ffffff;
-    --subtext: #b3b3b3;
+    --bg: #0e0e0e;
+    --panel: #171717;
+    --card: #1f1f1f;
+    --text: #fff;
+    --sub: #aaa;
     --accent: #1db954;
-    --input: #222;
 }
 
 [data-theme="light"] {
-    --bg: #f2f2f2;
-    --card: #ffffff;
-    --text: #121212;
-    --subtext: #555;
-    --input: #eaeaea;
+    --bg: #f4f4f4;
+    --panel: #fff;
+    --card: #f0f0f0;
+    --text: #111;
+    --sub: #555;
 }
 
 * {
@@ -24,124 +24,120 @@ body {
     margin: 0;
     background: var(--bg);
     color: var(--text);
-    height: 100vh;
 }
 
 .app {
-    height: 100%;
     display: flex;
-    flex-direction: column;
+    height: 100vh;
 }
 
-.header {
-    padding: 16px 24px;
-    display: flex;
-    justify-content: space-between;
+/* SIDEBAR */
+.sidebar {
+    width: 220px;
+    background: var(--panel);
+    padding: 20px;
 }
 
-.controls button {
-    margin-left: 8px;
+.logo {
+    font-weight: 700;
+    margin-bottom: 30px;
+}
+
+.nav-item {
+    display: block;
+    width: 100%;
+    background: none;
     border: none;
+    color: var(--sub);
+    text-align: left;
+    padding: 10px;
     border-radius: 8px;
-    padding: 6px 10px;
     cursor: pointer;
+}
+
+.nav-item.active,
+.nav-item:hover {
     background: var(--card);
     color: var(--text);
 }
 
-.tabs {
-    display: flex;
-    justify-content: center;
-    gap: 10px;
-    margin-bottom: 10px;
-}
-
-.tab {
-    background: transparent;
-    border: none;
-    color: var(--subtext);
-    padding: 8px 14px;
-    cursor: pointer;
-    border-bottom: 2px solid transparent;
-}
-
-.tab.active {
-    color: var(--text);
-    border-color: var(--accent);
-}
-
-.content {
+/* MAIN */
+.main {
     flex: 1;
+    padding: 20px 40px;
+}
+
+.topbar {
     display: flex;
-    justify-content: center;
+    justify-content: flex-end;
+    gap: 10px;
 }
 
-.card {
-    width: 420px;
-    background: var(--card);
-    padding: 26px;
-    border-radius: 20px;
-    box-shadow: 0 20px 50px rgba(0, 0, 0, 0.25);
-}
-
-.tab-content {
+.view {
     display: none;
+    max-width: 480px;
 }
 
-.tab-content.active {
+.view.active {
     display: block;
 }
 
 .input-group {
     display: flex;
     gap: 10px;
-    margin-bottom: 20px;
+    margin: 20px 0;
 }
 
-.input-group input {
+input {
     flex: 1;
     padding: 12px;
     border-radius: 10px;
     border: none;
-    background: var(--input);
+    background: var(--card);
     color: var(--text);
 }
 
-.input-group button {
+button {
     padding: 12px 16px;
     border-radius: 10px;
     border: none;
     cursor: pointer;
     background: var(--accent);
-    color: #000;
     font-weight: 600;
 }
 
-.player.hidden {
-    display: none;
+.player {
+    background: var(--card);
+    padding: 16px;
+    border-radius: 16px;
 }
 
 .cover {
-    height: 180px;
-    border-radius: 14px;
-    background: linear-gradient(135deg, #666, #999);
-    margin-bottom: 14px;
+    height: 160px;
+    border-radius: 12px;
+    background: linear-gradient(135deg, #777, #aaa);
+    margin-bottom: 12px;
 }
 
-.playlist {
-    display: flex;
-    flex-direction: column;
-    gap: 10px;
+.waveform {
+    height: 40px;
+    background: repeating-linear-gradient(to right,
+            var(--accent),
+            var(--accent) 2px,
+            transparent 2px,
+            transparent 4px);
+    opacity: 0.5;
+    margin: 10px 0;
 }
 
-.playlist-item {
-    padding: 12px;
-    border-radius: 10px;
-    background: var(--input);
-    cursor: pointer;
+.playlist .track-item {
+    background: var(--card);
+    padding: 10px;
+    border-radius: 8px;
+    margin-bottom: 8px;
+    cursor: grab;
 }
 
-.playlist-item:hover {
-    background: var(--accent);
-    color: #000;
+.hidden {
+    display: none;
 }
