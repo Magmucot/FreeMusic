@@ -1,9 +1,11 @@
 import yt_dlp
+from pathlib import Path
 
 
 class Youtube_download:
-    def __init__(self, output_path: str = "."):
-        self.out_path = output_path
+    def __init__(self, folder_n: str = "."):
+        self.out_path = Path(__file__).resolve().parent.parent / "songs"
+        print(self.out_path)
 
     def download_audio(self, url_query: str, post_proc: bool = False, codec: str = "mp3", qual: str = "192") -> None:
         search: bool = not url_query.startswith(("http://", "https://"))
@@ -33,7 +35,7 @@ class Youtube_download:
 
 # Пример использования
 if __name__ == "__main__":
-    yt_d = Youtube_download("/music")
+    yt_d = Youtube_download("/songs")
     video_url = "https://www.youtube.com/watch?v=dQw4w9WgXcQ"  # замените на свою
     yt_d.download_audio(video_url)
 

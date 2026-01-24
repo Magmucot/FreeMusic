@@ -5,7 +5,7 @@ const safeText = text => text.replace(/[<>]/g, "");
 const texts = {
     ru: {
         listenTitle: "Прослушивание",
-        listenSubtitle: "Вставьте ссылку на трек",
+        listenSubtitle: "Вставьте ссылку или название трека",
         playlistTitle: "Плейлисты",
         playlistSubtitle: "Добавляйте плейлисты по ссылке",
         track: "Демо-трек",
@@ -15,7 +15,7 @@ const texts = {
     },
     en: {
         listenTitle: "Listening",
-        listenSubtitle: "Paste track link",
+        listenSubtitle: "Paste track's link or name",
         playlistTitle: "Playlists",
         playlistSubtitle: "Add playlists by link",
         track: "Demo Track",
