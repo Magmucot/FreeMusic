@@ -1,108 +1,364 @@
 "use strict";
 
-const API_BASE_URL = "http://localhost:8000/api"; // Укажи свой URL
+// ===== CONFIGURATION =====
+const API_CONFIG = Object.freeze({
+    baseURL: "http://localhost:8000/api",
+    timeout: 15000,
 
-class APIClient {
-    constructor(baseURL) {
-        this.baseURL = baseURL;
-        this.token = localStorage.getItem("authToken");
-    }
+    endpoints: Object.freeze({
+        auth: Object.freeze({
+            register: "/auth/register",
+            login: "/auth/login",
+            logout: "/auth/logout",
+            profile: "/auth/profile"
+        }),
+        tracks: Object.freeze({
+            resolve: "/tracks/resolve",
+            search: "/tracks/search",
+            stream: (id) => `/tracks/${encodeURIComponent(id)}/stream`,
+            history: "/tracks/history"
+        }),
+        favorites: Object.freeze({
+            base: "/favorites",
+            byId: (id) => `/favorites/${encodeURIComponent(id)}`,
+            check: (id) => `/favorites/check/${encodeURIComponent(id)}`
+        }),
+        downloads: Object.freeze({
+            base: "/downloads",
+            byId: (id) => `/downloads/${encodeURIComponent(id)}`
+        }),
+        playlists: Object.freeze({
+            base: "/playlists",
+            byId: (id) => `/playlists/${encodeURIComponent(id)}`,
+            tracks: (id) => `/playlists/${encodeURIComponent(id)}/tracks`,
+            track: (pId, tId) => `/playlists/${encodeURIComponent(pId)}/tracks/${encodeURIComponent(tId)}`
+        }),
+        settings: "/settings"
+    })
+});
 
-    setToken(token) {
-        this.token = token;
-        token ? localStorage.setItem("authToken", token) : localStorage.removeItem("authToken");
-    }
+// ===== TOKEN MANAGEMENT =====
+const TokenManager = {
+    key: "authToken",
 
-    async request(endpoint, options = {}) {
-        const headers = { "Content-Type": "application/json", ...options.headers };
-        if (this.token) headers["Authorization"] = `Bearer ${this.token}`;
-
+    get() {
         try {
-            const response = await fetch(`${this.baseURL}${endpoint}`, { ...options, headers });
-
-            if (response.status === 401) {
-                this.setToken(null);
-                window.dispatchEvent(new CustomEvent("auth:logout"));
-                throw new Error("Unauthorized");
-            }
-
-            if (!response.ok) {
-                const err = await response.json().catch(() => ({}));
-                throw new Error(err.detail || err.message || `HTTP ${response.status}`);
-            }
-
-            const text = await response.text();
-            return text ? JSON.parse(text) : {};
-        } catch (error) {
-            console.error(`API [${endpoint}]:`, error);
-            throw error;
+            return localStorage.getItem(this.key);
+        } catch {
+            return null;
         }
+    },
+
+    set(token) {
+        try {
+            if (token) {
+                localStorage.setItem(this.key, token);
+            } else {
+                localStorage.removeItem(this.key);
+            }
+        } catch (e) {
+            console.warn("Token storage failed:", e);
+        }
+    },
+
+    clear() {
+        this.set(null);
     }
-
-    get(endpoint) { return this.request(endpoint, { method: "GET" }); }
-    post(endpoint, data) { return this.request(endpoint, { method: "POST", body: JSON.stringify(data) }); }
-    put(endpoint, data) { return this.request(endpoint, { method: "PUT", body: JSON.stringify(data) }); }
-    delete(endpoint) { return this.request(endpoint, { method: "DELETE" }); }
-}
-
-const api = new APIClient(API_BASE_URL);
-
-// ===== AUTH =====
-const authAPI = {
-    register: (email, password, username) => api.post("/auth/register", { email, password, username }).then(d => { if (d.token) api.setToken(d.token); return d; }),
-    login: (email, password) => api.post("/auth/login", { email, password }).then(d => { if (d.token) api.setToken(d.token); return d; }),
-    logout: () => { api.setToken(null); return Promise.resolve(); },
-    getProfile: () => api.get("/auth/profile"),
 };
 
-// ===== TRACKS =====
-const tracksAPI = {
-    resolve: (url) => api.post("/tracks/resolve", { url }),
-    search: (query, limit = 20) => api.get(`/tracks/search?q=${encodeURIComponent(query)}&limit=${limit}`),
-    getStreamUrl: (trackId) => api.get(`/tracks/${trackId}/stream`),
-    getHistory: () => api.get("/tracks/history"),
-    addToHistory: (trackId) => api.post("/tracks/history", { track_id: trackId }),
+// ===== AXIOS INSTANCE =====
+const apiClient = axios.create({
+    baseURL: API_CONFIG.baseURL,
+    timeout: API_CONFIG.timeout,
+    headers: {
+        "Content-Type": "application/json",
+        "Accept": "application/json"
+    }
+});
+
+// Request Interceptor
+apiClient.interceptors.request.use(
+    (config) => {
+        const token = TokenManager.get();
+        if (token) {
+            config.headers.Authorization = `Bearer ${token}`;
+        }
+        return config;
+    },
+    (error) => Promise.reject(error)
+);
+
+// Response Interceptor
+apiClient.interceptors.response.use(
+    (response) => response.data ?? {},
+    (error) => {
+        // Handle 401 Unauthorized
+        if (error.response?.status === 401) {
+            TokenManager.clear();
+            window.dispatchEvent(new CustomEvent("auth:logout"));
+        }
+
+        // Extract error message
+        const message = error.response?.data?.detail
+            ?? error.response?.data?.message
+            ?? error.message
+            ?? "Произошла ошибка сети";
+
+        return Promise.reject(new Error(message));
+    }
+);
+
+// ===== HELPERS =====
+const sanitize = (str, maxLen = 500) => {
+    if (typeof str !== "string") return "";
+    return str.trim().slice(0, maxLen);
 };
 
-// ===== FAVORITES =====
-const favoritesAPI = {
-    getAll: () => api.get("/favorites"),
-    add: (trackId, trackData = {}) => api.post("/favorites", { track_id: trackId, ...trackData }),
-    remove: (trackId) => api.delete(`/favorites/${trackId}`),
-    check: (trackId) => api.get(`/favorites/check/${trackId}`),
+const validateEmail = (email) => {
+    const re = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    return typeof email === "string" && re.test(email) && email.length <= 254;
 };
 
-// ===== DOWNLOADS =====
-const downloadsAPI = {
-    getAll: () => api.get("/downloads"),
-    add: (trackId, trackData = {}) => api.post("/downloads", { track_id: trackId, ...trackData }),
-    remove: (trackId) => api.delete(`/downloads/${trackId}`),
+const validateId = (id) => {
+    return id != null && String(id).length > 0;
 };
 
-// ===== PLAYLISTS =====
-const playlistsAPI = {
-    getAll: () => api.get("/playlists"),
-    create: (name, icon = "🎵") => api.post("/playlists", { name, icon }),
-    getById: (id) => api.get(`/playlists/${id}`),
-    update: (id, data) => api.put(`/playlists/${id}`, data),
-    delete: (id) => api.delete(`/playlists/${id}`),
-    addTrack: (playlistId, trackId, trackData = {}) => api.post(`/playlists/${playlistId}/tracks`, { track_id: trackId, ...trackData }),
-    removeTrack: (playlistId, trackId) => api.delete(`/playlists/${playlistId}/tracks/${trackId}`),
-};
+// ===== REPOSITORIES =====
 
-// ===== SETTINGS =====
-const settingsAPI = {
-    get: () => api.get("/settings"),
-    update: (settings) => api.put("/settings", settings),
-};
+const AuthRepository = Object.freeze({
+    async register(email, password, username) {
+        if (!validateEmail(email)) {
+            throw new Error("Неверный формат email");
+        }
+        if (typeof password !== "string" || password.length < 6) {
+            throw new Error("Пароль должен быть минимум 6 символов");
+        }
+        if (typeof username !== "string" || username.trim().length < 2) {
+            throw new Error("Имя должно быть минимум 2 символа");
+        }
+
+        const data = await apiClient.post(API_CONFIG.endpoints.auth.register, {
+            email: sanitize(email, 254),
+            password,
+            username: sanitize(username, 50)
+        });
+
+        if (data?.token) TokenManager.set(data.token);
+        return data;
+    },
+
+    async login(email, password) {
+        if (!validateEmail(email)) {
+            throw new Error("Неверный формат email");
+        }
+        if (!password) {
+            throw new Error("Введите пароль");
+        }
+
+        const data = await apiClient.post(API_CONFIG.endpoints.auth.login, {
+            email: sanitize(email, 254),
+            password
+        });
+
+        if (data?.token) TokenManager.set(data.token);
+        return data;
+    },
+
+    logout() {
+        TokenManager.clear();
+        return Promise.resolve({ success: true });
+    },
+
+    getProfile() {
+        return apiClient.get(API_CONFIG.endpoints.auth.profile);
+    }
+});
+
+const TracksRepository = Object.freeze({
+    resolve(url) {
+        const trimmed = sanitize(url, 2048);
+        if (!trimmed) {
+            return Promise.reject(new Error("Введите ссылку"));
+        }
+        return apiClient.post(API_CONFIG.endpoints.tracks.resolve, { url: trimmed });
+    },
+
+    search(query, limit = 20) {
+        const q = sanitize(query, 200);
+        if (!q) {
+            return Promise.reject(new Error("Введите поисковый запрос"));
+        }
+        return apiClient.get(API_CONFIG.endpoints.tracks.search, {
+            params: { q, limit: Math.min(Math.max(1, limit), 100) }
+        });
+    },
+
+    getStreamUrl(trackId) {
+        if (!validateId(trackId)) {
+            return Promise.reject(new Error("ID трека обязателен"));
+        }
+        return apiClient.get(API_CONFIG.endpoints.tracks.stream(trackId));
+    },
+
+    getHistory() {
+        return apiClient.get(API_CONFIG.endpoints.tracks.history);
+    },
+
+    addToHistory(trackId) {
+        if (!validateId(trackId)) {
+            return Promise.reject(new Error("ID трека обязателен"));
+        }
+        return apiClient.post(API_CONFIG.endpoints.tracks.history, {
+            track_id: String(trackId)
+        });
+    }
+});
+
+const FavoritesRepository = Object.freeze({
+    getAll() {
+        return apiClient.get(API_CONFIG.endpoints.favorites.base);
+    },
+
+    add(trackId, trackData = {}) {
+        if (!validateId(trackId)) {
+            return Promise.reject(new Error("ID трека обязателен"));
+        }
+        return apiClient.post(API_CONFIG.endpoints.favorites.base, {
+            track_id: String(trackId),
+            title: trackData.title ? sanitize(trackData.title, 200) : undefined,
+            artist: trackData.artist ? sanitize(trackData.artist, 200) : undefined,
+            duration: trackData.duration ? sanitize(trackData.duration, 10) : undefined
+        });
+    },
+
+    remove(trackId) {
+        if (!validateId(trackId)) {
+            return Promise.reject(new Error("ID трека обязателен"));
+        }
+        return apiClient.delete(API_CONFIG.endpoints.favorites.byId(trackId));
+    },
+
+    check(trackId) {
+        if (!validateId(trackId)) {
+            return Promise.reject(new Error("ID трека обязателен"));
+        }
+        return apiClient.get(API_CONFIG.endpoints.favorites.check(trackId));
+    }
+});
+
+const DownloadsRepository = Object.freeze({
+    getAll() {
+        return apiClient.get(API_CONFIG.endpoints.downloads.base);
+    },
+
+    add(trackId, trackData = {}) {
+        if (!validateId(trackId)) {
+            return Promise.reject(new Error("ID трека обязателен"));
+        }
+        return apiClient.post(API_CONFIG.endpoints.downloads.base, {
+            track_id: String(trackId),
+            title: trackData.title ? sanitize(trackData.title, 200) : undefined,
+            artist: trackData.artist ? sanitize(trackData.artist, 200) : undefined
+        });
+    },
+
+    remove(trackId) {
+        if (!validateId(trackId)) {
+            return Promise.reject(new Error("ID трека обязателен"));
+        }
+        return apiClient.delete(API_CONFIG.endpoints.downloads.byId(trackId));
+    }
+});
+
+const PlaylistsRepository = Object.freeze({
+    getAll() {
+        return apiClient.get(API_CONFIG.endpoints.playlists.base);
+    },
+
+    create(name, icon = "🎵") {
+        const safeName = sanitize(name, 100);
+        if (!safeName) {
+            return Promise.reject(new Error("Введите название плейлиста"));
+        }
+        return apiClient.post(API_CONFIG.endpoints.playlists.base, {
+            name: safeName,
+            icon: sanitize(icon, 10) || "🎵"
+        });
+    },
+
+    getById(id) {
+        if (!validateId(id)) {
+            return Promise.reject(new Error("ID плейлиста обязателен"));
+        }
+        return apiClient.get(API_CONFIG.endpoints.playlists.byId(id));
+    },
+
+    update(id, data) {
+        if (!validateId(id)) {
+            return Promise.reject(new Error("ID плейлиста обязателен"));
+        }
+        return apiClient.put(API_CONFIG.endpoints.playlists.byId(id), {
+            name: data.name ? sanitize(data.name, 100) : undefined,
+            icon: data.icon ? sanitize(data.icon, 10) : undefined
+        });
+    },
+
+    delete(id) {
+        if (!validateId(id)) {
+            return Promise.reject(new Error("ID плейлиста обязателен"));
+        }
+        return apiClient.delete(API_CONFIG.endpoints.playlists.byId(id));
+    },
+
+    addTrack(playlistId, trackId, trackData = {}) {
+        if (!validateId(playlistId) || !validateId(trackId)) {
+            return Promise.reject(new Error("ID плейлиста и трека обязательны"));
+        }
+        return apiClient.post(API_CONFIG.endpoints.playlists.tracks(playlistId), {
+            track_id: String(trackId),
+            title: trackData.title ? sanitize(trackData.title, 200) : undefined,
+            artist: trackData.artist ? sanitize(trackData.artist, 200) : undefined
+        });
+    },
+
+    removeTrack(playlistId, trackId) {
+        if (!validateId(playlistId) || !validateId(trackId)) {
+            return Promise.reject(new Error("ID плейлиста и трека обязательны"));
+        }
+        return apiClient.delete(API_CONFIG.endpoints.playlists.track(playlistId, trackId));
+    }
+});
+
+const SettingsRepository = Object.freeze({
+    get() {
+        return apiClient.get(API_CONFIG.endpoints.settings);
+    },
+
+    update(settings) {
+        if (typeof settings !== "object" || settings === null) {
+            return Promise.reject(new Error("Настройки должны быть объектом"));
+        }
+
+        const safe = {};
+        if (settings.lang === "ru" || settings.lang === "en") {
+            safe.lang = settings.lang;
+        }
+        if (settings.theme === "dark" || settings.theme === "light") {
+            safe.theme = settings.theme;
+        }
+
+        return apiClient.put(API_CONFIG.endpoints.settings, safe);
+    }
+});
 
 // ===== EXPORT =====
-window.API = {
-    client: api,
-    auth: authAPI,
-    tracks: tracksAPI,
-    favorites: favoritesAPI,
-    downloads: downloadsAPI,
-    playlists: playlistsAPI,
-    settings: settingsAPI
-};
+window.API = Object.freeze({
+    client: apiClient,
+    config: API_CONFIG,
+    auth: AuthRepository,
+    tracks: TracksRepository,
+    favorites: FavoritesRepository,
+    downloads: DownloadsRepository,
+    playlists: PlaylistsRepository,
+    settings: SettingsRepository
+});

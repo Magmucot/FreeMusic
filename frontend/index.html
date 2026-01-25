@@ -3,9 +3,22 @@
 
 <head>
     <meta charset="UTF-8">
-    <title>Music Resolver</title>
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; media-src 'self';">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <title>Music Resolver</title>
+
+    <!-- Security -->
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; 
+                   script-src 'self' https://cdn.jsdelivr.net; 
+                   style-src 'self' 'unsafe-inline'; 
+                   img-src 'self' data: https:; 
+                   media-src 'self' blob: https:; 
+                   connect-src 'self' http://localhost:8000 https:;
+                   font-src 'self' https:;">
+    <meta http-equiv="X-Content-Type-Options" content="nosniff">
+    <meta http-equiv="X-Frame-Options" content="DENY">
+    <meta name="referrer" content="strict-origin-when-cross-origin">
+
     <link rel="stylesheet" href="style.css">
 </head>
 
@@ -13,18 +26,18 @@
     <div class="app">
         <!-- SIDEBAR -->
         <aside class="sidebar">
-            <div class="logo">
-                <span class="logo-icon">🎵</span>
+            <div class="logo" role="button" tabindex="0" aria-label="На главную">
+                <span class="logo-icon" aria-hidden="true">🎵</span>
                 <span class="logo-text">Resolver</span>
             </div>
 
-            <nav class="nav-main">
-                <button class="nav-item active" data-tab="listen">
-                    <span class="nav-icon">🎧</span>
+            <nav class="nav-main" aria-label="Основная навигация">
+                <button class="nav-item active" data-tab="listen" type="button">
+                    <span class="nav-icon" aria-hidden="true">🎧</span>
                     <span class="nav-label">Listen</span>
                 </button>
-                <button class="nav-item" data-tab="playlists">
-                    <span class="nav-icon">📂</span>
+                <button class="nav-item" data-tab="playlists" type="button">
+                    <span class="nav-icon" aria-hidden="true">📂</span>
                     <span class="nav-label">Playlists</span>
                 </button>
             </nav>
@@ -32,90 +45,90 @@
             <div class="sidebar-section">
                 <div class="section-title" id="libraryTitle">Библиотека</div>
 
-                <!-- Обязательные плейлисты -->
-                <div class="playlist-list system-playlists">
-                    <div class="playlist-item" data-playlist="favorites">
-                        <span class="playlist-icon favorites-icon">❤️</span>
+                <div class="playlist-list system-playlists" role="list">
+                    <div class="playlist-item" data-playlist="favorites" role="listitem" tabindex="0">
+                        <span class="playlist-icon favorites-icon" aria-hidden="true">❤️</span>
                         <span class="playlist-name" id="favoritesName">Избранное</span>
                         <span class="playlist-count" id="favoritesCount">0</span>
                     </div>
-                    <div class="playlist-item" data-playlist="downloaded">
-                        <span class="playlist-icon downloaded-icon">📥</span>
+                    <div class="playlist-item" data-playlist="downloaded" role="listitem" tabindex="0">
+                        <span class="playlist-icon downloaded-icon" aria-hidden="true">📥</span>
                         <span class="playlist-name" id="downloadedName">Скачанные</span>
                         <span class="playlist-count" id="downloadedCount">0</span>
                     </div>
                 </div>
 
-                <!-- Разделитель -->
-                <div class="playlist-divider">
+                <div class="playlist-divider" role="separator">
                     <span class="divider-line"></span>
                     <span class="divider-text" id="userPlaylistsLabel">Мои плейлисты</span>
                     <span class="divider-line"></span>
                 </div>
 
-                <!-- Пользовательские плейлисты -->
-                <div class="playlist-list user-playlists" id="userPlaylists">
-                    <!-- Плейлисты будут добавляться сюда -->
-                </div>
+                <div class="playlist-list user-playlists" id="userPlaylists" role="list"></div>
 
-                <button class="add-playlist-btn" id="addPlaylistSidebar">
-                    <span class="plus-icon">+</span>
+                <button class="add-playlist-btn" id="addPlaylistSidebar" type="button">
+                    <span class="plus-icon" aria-hidden="true">+</span>
                     <span id="addPlaylistLabel">Создать плейлист</span>
                 </button>
             </div>
         </aside>
 
-        <!-- MAIN CONTENT -->
+        <!-- MAIN -->
         <main class="main">
             <header class="topbar">
                 <div class="search-bar">
-                    <span class="search-icon">🔍</span>
-                    <input type="text" id="globalSearch" placeholder="Поиск треков, артистов...">
+                    <span class="search-icon" aria-hidden="true">🔍</span>
+                    <input type="search" id="globalSearch" placeholder="Поиск треков, артистов..." autocomplete="off"
+                        maxlength="200" aria-label="Поиск">
                 </div>
                 <div class="topbar-actions">
-                    <button id="langToggle" class="icon-btn" title="Change language">
+                    <button id="langToggle" class="icon-btn" type="button" title="Сменить язык"
+                        aria-label="Сменить язык">
                         <span class="lang-text">EN</span>
                     </button>
-                    <button id="themeToggle" class="icon-btn" title="Toggle theme">
-                        <span class="theme-icon">🌙</span>
+                    <button id="themeToggle" class="icon-btn" type="button" title="Сменить тему"
+                        aria-label="Сменить тему">
+                        <span class="theme-icon" aria-hidden="true">🌙</span>
                     </button>
-                    <div class="user-avatar">
-                        <span>👤</span>
+                    <div class="user-avatar" role="button" tabindex="0" aria-label="Профиль">
+                        <span aria-hidden="true">👤</span>
                     </div>
                 </div>
             </header>
 
             <!-- LISTEN VIEW -->
-            <section id="listen" class="view active">
+            <section id="listen" class="view active" aria-labelledby="listenTitle">
                 <div class="view-header">
-                    <h1 id="listenTitle" class="gradient-text"></h1>
-                    <p id="listenSubtitle" class="subtitle"></p>
+                    <h1 id="listenTitle" class="gradient-text">Прослушивание</h1>
+                    <p id="listenSubtitle" class="subtitle">Вставьте ссылку или название трека</p>
                 </div>
 
                 <div class="input-group glass-effect">
-                    <span class="input-icon">🔗</span>
-                    <input id="trackInput" type="text" placeholder="">
-                    <button id="loadTrack" class="primary-btn">
+                    <span class="input-icon" aria-hidden="true">🔗</span>
+                    <input id="trackInput" type="text" placeholder="Ссылка на трек или название..." autocomplete="off"
+                        maxlength="2048" aria-label="Ссылка на трек">
+                    <button id="loadTrack" class="primary-btn" type="button">
                         <span class="btn-text">Load</span>
-                        <span class="btn-icon">→</span>
+                        <span class="btn-icon" aria-hidden="true">→</span>
                     </button>
                 </div>
 
-                <div class="loader hidden" id="loader">
-                    <div class="loader-spinner"></div>
-                    <span class="loader-text">Resolving link…</span>
+                <div class="loader hidden" id="loader" role="status" aria-live="polite">
+                    <div class="loader-spinner" aria-hidden="true"></div>
+                    <span class="loader-text">Загрузка…</span>
                 </div>
 
                 <div class="player hidden" id="player">
-                    <div class="player-bg"></div>
+                    <div class="player-bg" aria-hidden="true"></div>
                     <div class="player-content">
                         <div class="cover-container">
                             <div class="cover">
                                 <div class="cover-overlay">
-                                    <button class="play-btn-large" id="playPauseBtn">▶</button>
+                                    <button class="play-btn-large" id="playPauseBtn" type="button"
+                                        aria-label="Воспроизвести">▶</button>
                                 </div>
                             </div>
-                            <div class="cover-glow"></div>
+                            <div class="cover-glow" aria-hidden="true"></div>
                         </div>
 
                         <div class="track-details">
@@ -123,26 +136,29 @@
                                 <strong id="trackTitle" class="track-title"></strong>
                                 <span id="trackArtist" class="track-artist"></span>
                             </div>
-
                             <div class="track-actions">
-                                <button class="action-btn like-btn" id="likeBtn" title="Добавить в избранное">
+                                <button class="action-btn like-btn" id="likeBtn" type="button" title="В избранное"
+                                    aria-label="Добавить в избранное">
                                     <span class="heart-icon">♡</span>
                                 </button>
-                                <button class="action-btn download-btn" id="downloadBtn" title="Скачать">
-                                    <span class="download-icon">📥</span>
+                                <button class="action-btn download-btn" id="downloadBtn" type="button" title="Скачать"
+                                    aria-label="Скачать">
+                                    <span aria-hidden="true">📥</span>
                                 </button>
-                                <button class="action-btn" id="addToPlaylistBtn" title="Добавить в плейлист">
-                                    <span>➕</span>
+                                <button class="action-btn" id="addToPlaylistBtn" type="button" title="В плейлист"
+                                    aria-label="Добавить в плейлист">
+                                    <span aria-hidden="true">➕</span>
                                 </button>
-                                <button class="action-btn" title="Поделиться">
-                                    <span>📤</span>
+                                <button class="action-btn" type="button" title="Поделиться" aria-label="Поделиться">
+                                    <span aria-hidden="true">📤</span>
                                 </button>
                             </div>
                         </div>
 
                         <div class="waveform-container">
-                            <div class="waveform" id="waveform"></div>
-                            <div class="progress-bar" id="progressBar">
+                            <div class="waveform" id="waveform" aria-hidden="true"></div>
+                            <div class="progress-bar" id="progressBar" role="slider" aria-label="Прогресс"
+                                aria-valuemin="0" aria-valuemax="100" aria-valuenow="0">
                                 <div class="progress-fill" id="progressFill"></div>
                                 <div class="progress-handle" id="progressHandle"></div>
                             </div>
@@ -154,202 +170,213 @@
                         </div>
 
                         <div class="player-controls">
-                            <button class="control-btn" id="shuffleBtn" title="Перемешать">🔀</button>
-                            <button class="control-btn" id="prevBtn" title="Предыдущий">⏮</button>
-                            <button class="control-btn play-btn" id="mainPlayBtn">▶</button>
-                            <button class="control-btn" id="nextBtn" title="Следующий">⏭</button>
-                            <button class="control-btn" id="repeatBtn" title="Повтор">🔁</button>
+                            <button class="control-btn" id="shuffleBtn" type="button" title="Перемешать"
+                                aria-label="Перемешать">🔀</button>
+                            <button class="control-btn" id="prevBtn" type="button" title="Предыдущий"
+                                aria-label="Предыдущий">⏮</button>
+                            <button class="control-btn play-btn" id="mainPlayBtn" type="button"
+                                aria-label="Воспроизвести">▶</button>
+                            <button class="control-btn" id="nextBtn" type="button" title="Следующий"
+                                aria-label="Следующий">⏭</button>
+                            <button class="control-btn" id="repeatBtn" type="button" title="Повтор"
+                                aria-label="Повтор">🔁</button>
                         </div>
 
                         <div class="volume-control">
-                            <span class="volume-icon" id="volumeIcon">🔊</span>
-                            <input type="range" id="volumeSlider" min="0" max="100" value="80" class="volume-slider">
+                            <span class="volume-icon" id="volumeIcon" role="button" tabindex="0"
+                                aria-label="Выключить звук">🔊</span>
+                            <input type="range" id="volumeSlider" min="0" max="100" value="80" class="volume-slider"
+                                aria-label="Громкость">
                         </div>
 
-                        <audio id="audio"></audio>
+                        <audio id="audio" preload="metadata"></audio>
                     </div>
                 </div>
 
-                <!-- Recently Played -->
-                <div class="recent-section" id="recentSection">
+                <section class="recent-section" id="recentSection" aria-labelledby="recentTitle">
                     <h3 class="section-heading" id="recentTitle">Недавно прослушанные</h3>
-                    <div class="recent-tracks" id="recentTracks">
-                        <div class="recent-track" data-id="1">
-                            <div class="recent-cover"></div>
+                    <div class="recent-tracks" id="recentTracks" role="list">
+                        <div class="recent-track" data-id="recent_1" role="listitem" tabindex="0">
+                            <div class="recent-cover" aria-hidden="true"></div>
                             <div class="recent-info">
                                 <span class="recent-name">Summer Nights</span>
                                 <span class="recent-artist">Artist Name</span>
                             </div>
-                            <button class="like-btn-small" data-id="1">
+                            <button class="like-btn-small" data-id="recent_1" type="button" aria-label="В избранное">
                                 <span class="heart-small">♡</span>
                             </button>
                         </div>
-                        <div class="recent-track" data-id="2">
-                            <div class="recent-cover"></div>
+                        <div class="recent-track" data-id="recent_2" role="listitem" tabindex="0">
+                            <div class="recent-cover" aria-hidden="true"></div>
                             <div class="recent-info">
                                 <span class="recent-name">Midnight Dreams</span>
                                 <span class="recent-artist">Another Artist</span>
                             </div>
-                            <button class="like-btn-small" data-id="2">
+                            <button class="like-btn-small" data-id="recent_2" type="button" aria-label="В избранное">
                                 <span class="heart-small">♡</span>
                             </button>
                         </div>
-                        <div class="recent-track" data-id="3">
-                            <div class="recent-cover"></div>
+                        <div class="recent-track" data-id="recent_3" role="listitem" tabindex="0">
+                            <div class="recent-cover" aria-hidden="true"></div>
                             <div class="recent-info">
                                 <span class="recent-name">Ocean Waves</span>
                                 <span class="recent-artist">Chill Artist</span>
                             </div>
-                            <button class="like-btn-small" data-id="3">
+                            <button class="like-btn-small" data-id="recent_3" type="button" aria-label="В избранное">
                                 <span class="heart-small">♡</span>
                             </button>
                         </div>
                     </div>
-                </div>
+                </section>
             </section>
 
             <!-- PLAYLISTS VIEW -->
-            <section id="playlists" class="view">
+            <section id="playlists" class="view" aria-labelledby="playlistTitle">
                 <div class="view-header">
-                    <h1 id="playlistTitle" class="gradient-text"></h1>
-                    <p id="playlistSubtitle" class="subtitle"></p>
+                    <h1 id="playlistTitle" class="gradient-text">Плейлисты</h1>
+                    <p id="playlistSubtitle" class="subtitle">Добавляйте плейлисты по ссылке</p>
                 </div>
 
                 <div class="input-group glass-effect">
-                    <span class="input-icon">📂</span>
-                    <input id="playlistInput" type="text" placeholder="">
-                    <button id="addPlaylist" class="primary-btn">
+                    <span class="input-icon" aria-hidden="true">📂</span>
+                    <input id="playlistInput" type="text" placeholder="Ссылка на плейлист..." autocomplete="off"
+                        maxlength="2048" aria-label="Ссылка на плейлист">
+                    <button id="addPlaylist" class="primary-btn" type="button">
                         <span class="btn-text">Add</span>
-                        <span class="btn-icon">+</span>
+                        <span class="btn-icon" aria-hidden="true">+</span>
                     </button>
                 </div>
 
-                <!-- Tabs для плейлистов -->
-                <div class="playlist-tabs">
-                    <button class="tab-btn active" data-playlist-view="all" id="tabAll">Все</button>
-                    <button class="tab-btn" data-playlist-view="favorites" id="tabFavorites">❤️ Избранное</button>
-                    <button class="tab-btn" data-playlist-view="downloaded" id="tabDownloaded">📥 Скачанные</button>
+                <div class="playlist-tabs" role="tablist">
+                    <button class="tab-btn active" data-playlist-view="all" id="tabAll" type="button" role="tab"
+                        aria-selected="true">Все</button>
+                    <button class="tab-btn" data-playlist-view="favorites" id="tabFavorites" type="button" role="tab"
+                        aria-selected="false">❤️ Избранное</button>
+                    <button class="tab-btn" data-playlist-view="downloaded" id="tabDownloaded" type="button" role="tab"
+                        aria-selected="false">📥 Скачанные</button>
                 </div>
 
                 <div class="playlist-content" id="playlistContent">
                     <!-- All Tracks -->
-                    <div class="playlist-view active" id="viewAll">
+                    <div class="playlist-view active" id="viewAll" role="tabpanel">
                         <div class="playlist-header">
                             <div class="playlist-info">
                                 <span class="track-count" id="allTracksCount">3 треков</span>
                                 <span class="playlist-duration">~12 мин</span>
                             </div>
                             <div class="playlist-actions">
-                                <button class="sort-btn" id="sortBtn">
-                                    <span>↕️</span> Сортировка
+                                <button class="sort-btn" id="sortBtn" type="button" aria-haspopup="true"
+                                    aria-expanded="false">
+                                    <span aria-hidden="true">↕️</span> Сортировка
                                 </button>
-                                <div class="sort-menu hidden" id="sortMenu"></div>
+                                <div class="sort-menu hidden" id="sortMenu" role="menu"></div>
                             </div>
                         </div>
-                        <div class="tracks-list" id="playlist">
-                            <div class="track-item" draggable="true" data-id="1">
+                        <div class="tracks-list" id="playlist" role="list">
+                            <div class="track-item" draggable="true" data-id="demo_1" role="listitem">
+                                <span class="drag-handle" aria-hidden="true" title="Перетащить">⠿</span>
                                 <span class="track-number">1</span>
-                                <div class="track-cover-small"></div>
+                                <div class="track-cover-small" aria-hidden="true"></div>
                                 <div class="track-item-info">
                                     <span class="track-item-name">Demo Track 1</span>
                                     <span class="track-item-artist">Artist 1</span>
                                 </div>
                                 <span class="track-duration">3:24</span>
-                                <button class="like-btn-small" data-id="1">
+                                <button class="like-btn-small" data-id="demo_1" type="button" aria-label="В избранное">
                                     <span class="heart-small">♡</span>
                                 </button>
-                                <button class="more-btn">⋯</button>
+                                <button class="more-btn" type="button" aria-label="Ещё">⋯</button>
                             </div>
-                            <div class="track-item" draggable="true" data-id="2">
+                            <div class="track-item" draggable="true" data-id="demo_2" role="listitem">
+                                <span class="drag-handle" aria-hidden="true" title="Перетащить">⠿</span>
                                 <span class="track-number">2</span>
-                                <div class="track-cover-small"></div>
+                                <div class="track-cover-small" aria-hidden="true"></div>
                                 <div class="track-item-info">
                                     <span class="track-item-name">Demo Track 2</span>
                                     <span class="track-item-artist">Artist 2</span>
                                 </div>
                                 <span class="track-duration">4:12</span>
-                                <button class="like-btn-small" data-id="2">
+                                <button class="like-btn-small" data-id="demo_2" type="button" aria-label="В избранное">
                                     <span class="heart-small">♡</span>
                                 </button>
-                                <button class="more-btn">⋯</button>
+                                <button class="more-btn" type="button" aria-label="Ещё">⋯</button>
                             </div>
-                            <div class="track-item" draggable="true" data-id="3">
+                            <div class="track-item" draggable="true" data-id="demo_3" role="listitem">
+                                <span class="drag-handle" aria-hidden="true" title="Перетащить">⠿</span>
                                 <span class="track-number">3</span>
-                                <div class="track-cover-small"></div>
+                                <div class="track-cover-small" aria-hidden="true"></div>
                                 <div class="track-item-info">
                                     <span class="track-item-name">Demo Track 3</span>
                                     <span class="track-item-artist">Artist 3</span>
                                 </div>
                                 <span class="track-duration">2:58</span>
-                                <button class="like-btn-small" data-id="3">
+                                <button class="like-btn-small" data-id="demo_3" type="button" aria-label="В избранное">
                                     <span class="heart-small">♡</span>
                                 </button>
-                                <button class="more-btn">⋯</button>
+                                <button class="more-btn" type="button" aria-label="Ещё">⋯</button>
                             </div>
                         </div>
                     </div>
 
                     <!-- Favorites View -->
-                    <div class="playlist-view" id="viewFavorites">
+                    <div class="playlist-view" id="viewFavorites" role="tabpanel">
                         <div class="playlist-header favorites-header">
                             <div class="favorites-banner">
-                                <span class="favorites-icon-large">❤️</span>
+                                <span class="favorites-icon-large" aria-hidden="true">❤️</span>
                                 <div class="favorites-info">
                                     <h2 id="favoritesTitle">Избранное</h2>
                                     <p id="favoritesDesc">Треки, которые вам понравились</p>
                                 </div>
                             </div>
                         </div>
-                        <div class="tracks-list" id="favoritesList">
+                        <div class="tracks-list" id="favoritesList" role="list">
                             <div class="empty-state" id="emptyFavorites">
-                                <span class="empty-icon">💔</span>
+                                <span class="empty-icon" aria-hidden="true">💔</span>
                                 <p id="emptyFavoritesText">Нет избранных треков</p>
-                                <span class="empty-hint" id="emptyFavoritesHint">Нажмите ♡ чтобы добавить трек в
-                                    избранное</span>
+                                <span class="empty-hint" id="emptyFavoritesHint">Нажмите ♡ чтобы добавить трек</span>
                             </div>
                         </div>
                     </div>
 
                     <!-- Downloaded View -->
-                    <div class="playlist-view" id="viewDownloaded">
+                    <div class="playlist-view" id="viewDownloaded" role="tabpanel">
                         <div class="playlist-header downloaded-header">
                             <div class="downloaded-banner">
-                                <span class="downloaded-icon-large">📥</span>
+                                <span class="downloaded-icon-large" aria-hidden="true">📥</span>
                                 <div class="downloaded-info">
                                     <h2 id="downloadedTitle">Скачанные</h2>
                                     <p id="downloadedDesc">Доступны офлайн</p>
                                 </div>
                             </div>
                         </div>
-                        <div class="tracks-list" id="downloadedList">
+                        <div class="tracks-list" id="downloadedList" role="list">
                             <div class="empty-state" id="emptyDownloaded">
-                                <span class="empty-icon">📭</span>
+                                <span class="empty-icon" aria-hidden="true">📭</span>
                                 <p id="emptyDownloadedText">Нет скачанных треков</p>
-                                <span class="empty-hint" id="emptyDownloadedHint">Нажмите 📥 чтобы скачать трек</span>
+                                <span class="empty-hint" id="emptyDownloadedHint">Нажмите 📥 чтобы скачать</span>
                             </div>
                         </div>
                     </div>
 
-                    <!-- User Playlist View (динамический) -->
-                    <div class="playlist-view" id="viewUserPlaylist">
+                    <!-- User Playlist View -->
+                    <div class="playlist-view" id="viewUserPlaylist" role="tabpanel">
                         <div class="playlist-header user-playlist-header">
                             <div class="user-playlist-banner">
-                                <span class="user-playlist-icon-large" id="currentPlaylistIcon">🎵</span>
+                                <span class="user-playlist-icon-large" id="currentPlaylistIcon"
+                                    aria-hidden="true">🎵</span>
                                 <div class="user-playlist-info">
                                     <h2 id="currentPlaylistName">Плейлист</h2>
                                     <p id="currentPlaylistDesc">0 треков</p>
                                 </div>
-                                <button class="delete-playlist-btn" id="deletePlaylistBtn" title="Удалить плейлист">
-                                    🗑️
-                                </button>
+                                <button class="delete-playlist-btn" id="deletePlaylistBtn" type="button" title="Удалить"
+                                    aria-label="Удалить плейлист">🗑️</button>
                             </div>
                         </div>
-                        <div class="tracks-list" id="userPlaylistTracks">
+                        <div class="tracks-list" id="userPlaylistTracks" role="list">
                             <div class="empty-state" id="emptyUserPlaylist">
-                                <span class="empty-icon">🎵</span>
+                                <span class="empty-icon" aria-hidden="true">🎵</span>
                                 <p id="emptyUserPlaylistText">Плейлист пуст</p>
-                                <span class="empty-hint" id="emptyUserPlaylistHint">Добавьте треки с помощью кнопки
-                                    ➕</span>
+                                <span class="empty-hint" id="emptyUserPlaylistHint">Добавьте треки кнопкой ➕</span>
                             </div>
                         </div>
                     </div>
@@ -358,64 +385,83 @@
         </main>
     </div>
 
-    <!-- Modal для создания плейлиста -->
-    <div class="modal-overlay hidden" id="createPlaylistModal">
+    <!-- Create Playlist Modal -->
+    <div class="modal-overlay hidden" id="createPlaylistModal" role="dialog" aria-modal="true"
+        aria-labelledby="modalTitle">
         <div class="modal">
             <div class="modal-header">
                 <h2 id="modalTitle">Создать плейлист</h2>
-                <button class="modal-close" id="closeModal">✕</button>
+                <button class="modal-close" id="closeModal" type="button" aria-label="Закрыть">✕</button>
             </div>
             <div class="modal-body">
                 <div class="form-group">
-                    <label for="playlistName" id="labelPlaylistName">Название плейлиста</label>
-                    <input type="text" id="playlistNameInput" placeholder="Мой плейлист" maxlength="50">
+                    <label for="playlistNameInput" id="labelPlaylistName">Название плейлиста</label>
+                    <input type="text" id="playlistNameInput" placeholder="Мой плейлист" maxlength="100"
+                        autocomplete="off" required>
                 </div>
                 <div class="form-group">
                     <label id="labelPlaylistIcon">Выберите иконку</label>
-                    <div class="icon-picker" id="iconPicker">
-                        <button class="icon-option selected" data-icon="🎵">🎵</button>
-                        <button class="icon-option" data-icon="🎸">🎸</button>
-                        <button class="icon-option" data-icon="🎹">🎹</button>
-                        <button class="icon-option" data-icon="🎷">🎷</button>
-                        <button class="icon-option" data-icon="🥁">🥁</button>
-                        <button class="icon-option" data-icon="🎤">🎤</button>
-                        <button class="icon-option" data-icon="🌙">🌙</button>
-                        <button class="icon-option" data-icon="☀️">☀️</button>
-                        <button class="icon-option" data-icon="🔥">🔥</button>
-                        <button class="icon-option" data-icon="💪">💪</button>
-                        <button class="icon-option" data-icon="🎉">🎉</button>
-                        <button class="icon-option" data-icon="💜">💜</button>
-                        <button class="icon-option" data-icon="🌊">🌊</button>
-                        <button class="icon-option" data-icon="⭐">⭐</button>
-                        <button class="icon-option" data-icon="🚀">🚀</button>
+                    <div class="icon-picker" id="iconPicker" role="radiogroup">
+                        <button class="icon-option selected" data-icon="🎵" type="button" role="radio"
+                            aria-checked="true">🎵</button>
+                        <button class="icon-option" data-icon="🎸" type="button" role="radio"
+                            aria-checked="false">🎸</button>
+                        <button class="icon-option" data-icon="🎹" type="button" role="radio"
+                            aria-checked="false">🎹</button>
+                        <button class="icon-option" data-icon="🎷" type="button" role="radio"
+                            aria-checked="false">🎷</button>
+                        <button class="icon-option" data-icon="🥁" type="button" role="radio"
+                            aria-checked="false">🥁</button>
+                        <button class="icon-option" data-icon="🎤" type="button" role="radio"
+                            aria-checked="false">🎤</button>
+                        <button class="icon-option" data-icon="🌙" type="button" role="radio"
+                            aria-checked="false">🌙</button>
+                        <button class="icon-option" data-icon="☀️" type="button" role="radio"
+                            aria-checked="false">☀️</button>
+                        <button class="icon-option" data-icon="🔥" type="button" role="radio"
+                            aria-checked="false">🔥</button>
+                        <button class="icon-option" data-icon="💪" type="button" role="radio"
+                            aria-checked="false">💪</button>
+                        <button class="icon-option" data-icon="🎉" type="button" role="radio"
+                            aria-checked="false">🎉</button>
+                        <button class="icon-option" data-icon="💜" type="button" role="radio"
+                            aria-checked="false">💜</button>
+                        <button class="icon-option" data-icon="🌊" type="button" role="radio"
+                            aria-checked="false">🌊</button>
+                        <button class="icon-option" data-icon="⭐" type="button" role="radio"
+                            aria-checked="false">⭐</button>
+                        <button class="icon-option" data-icon="🚀" type="button" role="radio"
+                            aria-checked="false">🚀</button>
                     </div>
                 </div>
             </div>
             <div class="modal-footer">
-                <button class="btn-secondary" id="cancelCreatePlaylist">Отмена</button>
-                <button class="btn-primary" id="confirmCreatePlaylist">Создать</button>
+                <button class="btn-secondary" id="cancelCreatePlaylist" type="button">Отмена</button>
+                <button class="btn-primary" id="confirmCreatePlaylist" type="button">Создать</button>
             </div>
         </div>
     </div>
 
-    <!-- Modal для добавления в плейлист -->
-    <div class="modal-overlay hidden" id="addToPlaylistModal">
+    <!-- Add to Playlist Modal -->
+    <div class="modal-overlay hidden" id="addToPlaylistModal" role="dialog" aria-modal="true"
+        aria-labelledby="addToPlaylistTitle">
         <div class="modal">
             <div class="modal-header">
                 <h2 id="addToPlaylistTitle">Добавить в плейлист</h2>
-                <button class="modal-close" id="closeAddToPlaylistModal">✕</button>
+                <button class="modal-close" id="closeAddToPlaylistModal" type="button" aria-label="Закрыть">✕</button>
             </div>
             <div class="modal-body">
-                <div class="playlists-select" id="playlistsSelect">
-                    <!-- Плейлисты для выбора -->
-                </div>
+                <div class="playlists-select" id="playlistsSelect" role="list"></div>
             </div>
         </div>
     </div>
 
-    <!-- Toast Notifications -->
-    <div class="toast-container" id="toastContainer"></div>
+    <!-- Toast -->
+    <div class="toast-container" id="toastContainer" role="status" aria-live="polite"></div>
 
+    <!-- Scripts -->
+    <script src="https://cdn.jsdelivr.net/npm/axios@1.6.2/dist/axios.min.js"></script>
+    <script src="api.js"></script>
     <script src="app.js"></script>
 </body>
 
