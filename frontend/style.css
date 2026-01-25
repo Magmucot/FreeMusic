@@ -1687,3 +1687,92 @@ body {
         margin: 16px;
     }
 }
+
+/* ===== DRAG HANDLE ===== */
+.drag-handle {
+    cursor: grab;
+    color: var(--sub);
+    font-size: 14px;
+    padding: 0 8px;
+    opacity: 0;
+    transition: opacity var(--transition-fast);
+}
+
+.track-item:hover .drag-handle {
+    opacity: 1;
+}
+
+.track-item.dragging {
+    opacity: 0.5;
+    background: var(--card-hover);
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+    transform: scale(1.02);
+}
+
+.track-item-placeholder {
+    height: 68px;
+    background: var(--accent-glow);
+    border: 2px dashed var(--accent);
+    border-radius: var(--radius-md);
+    margin-bottom: 4px;
+}
+
+/* ===== SORT MENU ===== */
+.sort-menu {
+    position: absolute;
+    top: 100%;
+    right: 0;
+    margin-top: 8px;
+    background: var(--panel);
+    border: 1px solid var(--border-light);
+    border-radius: var(--radius-md);
+    box-shadow: var(--shadow);
+    min-width: 180px;
+    z-index: 100;
+    overflow: hidden;
+}
+
+
+.sort-option {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    width: 100%;
+    padding: 12px 16px;
+    background: transparent;
+    border: none;
+    color: var(--text-secondary);
+    font-size: 14px;
+    cursor: pointer;
+    transition: all var(--transition-fast);
+    text-align: left;
+}
+
+.sort-option:hover {
+    background: var(--glass);
+    color: var(--text);
+}
+
+.sort-option.active {
+    background: rgba(29, 185, 84, 0.1);
+    color: var(--accent);
+}
+
+/* ===== PLAYLIST ACTIONS - сделать relative для позиционирования меню ===== */
+.playlist-actions {
+    position: relative;
+}
+
+/* ===== LOGO CLICKABLE ===== */
+.logo {
+    cursor: pointer;
+    transition: transform var(--transition-fast);
+}
+
+.logo:hover {
+    transform: scale(1.02);
+}
+
+.logo:active {
+    transform: scale(0.98);
+}
