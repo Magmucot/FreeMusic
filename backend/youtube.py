@@ -12,7 +12,7 @@ log.basicConfig(
 
 class Youtube_download:
     def __init__(self, db_n: str = "music_lib.db", folder_n: str = "songs"):
-        base_path = Path(__file__).resolve().parent.parent
+        base_path = Path(__file__).resolve().parent.parent / "data"
 
         self.out_path = base_path / folder_n
         self.out_path.mkdir(parents=True, exist_ok=True)
