@@ -2,6 +2,8 @@ import yt_dlp
 from pathlib import Path
 import sqlite3
 import logging as log
+from data.db import DB
+
 
 log.basicConfig(
     level=log.INFO,
@@ -21,52 +23,7 @@ class Youtube_download:
         log.info(self.db_path)
         if not self.db_path.exists():
             log.info(f"Создание новой базы данных по адресу: {self.db_path}")
-        self.init_db()
-
-    def init_db(self):
-        try:
-            with sqlite3.connect(self.db_path) as conn:
-                cursor = conn.cursor()
-                cursor.execute("""
-                    CREATE TABLE IF NOT EXISTS songs (
-                        id TEXT PRIMARY KEY,
-                        title TEXT NOT NULL
-                    )
-                """)
-                cursor.execute("""
-                    CREATE TABLE IF NOT EXISTS metadata (
-                        song_id TEXT PRIMARY KEY,
-                        uploader TEXT,
-                        duration INTEGER,
-                        views INTEGER,
-                        url TEXT,
-                        platform TEXT,
-                        FOREIGN KEY (song_id) REFERENCES songs (id)
-                    )
-                """)
-                conn.commit()
-                log.info("Схема базы данных проверена/инициализирована.")
-        except sqlite3.Error as e:
-            log.error(f"Ошибка при инициализации БД: {e}")
-
-    def save_data(self, info) -> None:
-        with sqlite3.connect(self.db_path) as conn:
-            cursor = conn.cursor()
-
-            cursor.execute("INSERT OR IGNORE INTO songs (id, title) VALUES (?, ?)", (info["id"], info["title"]))
-
-            cursor.execute(
-                "INSERT OR IGNORE INTO metadata (song_id, uploader, duration, views, url, platform) VALUES (?, ?, ?, ?, ?, ?)",
-                (
-                    info["id"],
-                    info.get("uploader"),
-                    info.get("duration"),
-                    info.get("view_count"),
-                    info.get("webpage_url"),
-                    "youtube",
-                ),
-            )
-            conn.commit()
+        self.db = DB(db_n)
 
     def download_audio(self, url_query: str, post_proc: bool = False, codec: str = "mp3", qual: str = "192") -> None:
         search: bool = not url_query.startswith(("http://", "https://"))
@@ -99,7 +56,7 @@ class Youtube_download:
 
             # 2. Сохраняем данные в БД
             if info_dict:
-                self.save_data(info_dict)
+                self.db.save_data(info_dict)
                 print(f"Успешно сохранено в БД: {info_dict['title']}")
 
 
