@@ -12,5 +12,6 @@
 !LICENSE
 !.gitignoge
 !README.md
-/data/__pycache__
+
+**/__pycache__
 /data/songs

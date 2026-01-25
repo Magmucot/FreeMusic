@@ -4,16 +4,11 @@ import time
 import base64
 import requests
 from pathlib import Path
-from typing import Dict, List, Optional, Union, Tuple
-from dataclasses import dataclass, field
+from typing import Dict, List, Optional, Union
+from dataclasses import dataclass
 import logging
 
-from selenium import webdriver
-from selenium.webdriver.common.by import By
-from selenium.webdriver.chrome.options import Options
-from selenium.webdriver.support.ui import WebDriverWait
-from selenium.webdriver.support import expected_conditions as EC
-from selenium.common.exceptions import TimeoutException, NoSuchElementException, WebDriverException
+from playwright.sync_api import sync_playwright, Page, Browser, BrowserContext, TimeoutError as PlaywrightTimeout
 
 # Настройка логирования
 logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(name)s - %(levelname)s - %(message)s")
@@ -48,81 +43,97 @@ class DownloadResult:
 class SpotifyParser:
     """Парсер для скачивания треков с Spotify через spotidown.app"""
 
-    def __init__(self, cache_dir: Union[str, Path] = "./cache"):
+    def __init__(self, cache_dir: Union[str, Path] = "./cache", headless: bool = True):
         """
         Инициализация парсера
 
         Args:
             cache_dir: Директория для кеширования файлов
+            headless: Запускать браузер в фоновом режиме
         """
         self.cache_dir = Path(cache_dir)
         self.cache_dir.mkdir(parents=True, exist_ok=True)
 
         self.site_url = "https://spotidown.app/en"
-        self.driver = None
-        self.wait = None
-
-        # Настройки для Chrome
-        self.chrome_options = Options()
-        self._setup_chrome_options()
+        self.headless = headless
+        
+        # Playwright объекты
+        self.playwright = None
+        self.browser: Optional[Browser] = None
+        self.context: Optional[BrowserContext] = None
+        self.page: Optional[Page] = None
 
         logger.info(f"Инициализирован SpotifyParser, кеш: {self.cache_dir}")
-
-    def _setup_chrome_options(self):
-        """Настройка опций Chrome"""
-        import os
-        
-        # Указываем путь к бинарнику Chromium из переменной, которую мы создали во Flake
-        chrome_bin = os.getenv("CHROME_BIN")
-        if chrome_bin: self.chrome_options.binary_location = chrome_bin
-        self.chrome_options.add_argument("--headless=new")
-        self.chrome_options.add_argument("--disable-gpu")
-        self.chrome_options.add_argument("--no-sandbox")
-        self.chrome_options.add_argument("--disable-dev-shm-usage")
-        self.chrome_options.add_argument("--disable-blink-features=AutomationControlled")
-        self.chrome_options.add_experimental_option("excludeSwitches", ["enable-automation"])
-        self.chrome_options.add_experimental_option("useAutomationExtension", False)
-
-        # Дополнительные опции для улучшения производительности
-        self.chrome_options.add_argument("--window-size=1920,1080")
-        self.chrome_options.add_argument("--disable-extensions")
-        self.chrome_options.add_argument("--disable-notifications")
-        self.chrome_options.add_argument("--disable-popup-blocking")
-        self.chrome_options.add_argument(
-            "--user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
-        )
 
     def start(self):
         """Запуск браузера"""
         try:
-            logger.info("Запуск Chrome браузера...")
-            self.driver = webdriver.Chrome(options=self.chrome_options)
-            self.driver.set_page_load_timeout(30)
-            self.wait = WebDriverWait(self.driver, 20)
-
+            logger.info("Запуск Playwright браузера...")
+            
+            # Запускаем Playwright
+            self.playwright = sync_playwright().start()
+            
+            # Запускаем браузер (Chromium по умолчанию)
+            self.browser = self.playwright.chromium.launch(
+                headless=self.headless,
+                args=[
+                    '--disable-blink-features=AutomationControlled',
+                    '--disable-dev-shm-usage',
+                    '--no-sandbox',
+                ]
+            )
+            
+            # Создаем контекст с настройками
+            self.context = self.browser.new_context(
+                viewport={'width': 1920, 'height': 1080},
+                user_agent='Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+                locale='en-US',
+            )
+            
+            # Создаем страницу
+            self.page = self.context.new_page()
+            
+            # Устанавливаем таймауты
+            self.page.set_default_timeout(30000)  # 30 секунд
+            
             # Открываем главную страницу
-            self.driver.get(self.site_url)
+            self.page.goto(self.site_url, wait_until='networkidle')
+            
             logger.info("Браузер успешно запущен")
             return True
+            
         except Exception as e:
             logger.error(f"Ошибка запуска браузера: {e}")
+            self.stop()
             return False
 
     def stop(self):
         """Остановка браузера"""
-        if self.driver:
-            try:
-                self.driver.quit()
-                logger.info("Браузер остановлен")
-            except Exception as e:
-                logger.error(f"Ошибка при остановке браузера: {e}")
-            finally:
-                self.driver = None
-                self.wait = None
+        try:
+            if self.page:
+                self.page.close()
+                self.page = None
+            
+            if self.context:
+                self.context.close()
+                self.context = None
+            
+            if self.browser:
+                self.browser.close()
+                self.browser = None
+            
+            if self.playwright:
+                self.playwright.stop()
+                self.playwright = None
+            
+            logger.info("Браузер остановлен")
+            
+        except Exception as e:
+            logger.error(f"Ошибка при остановке браузера: {e}")
 
     def is_running(self) -> bool:
         """Проверка, запущен ли браузер"""
-        return self.driver is not None
+        return self.page is not None and not self.page.is_closed()
 
     @staticmethod
     def safe_filename(text: str, max_length: int = 100) -> str:
@@ -231,26 +242,26 @@ class SpotifyParser:
         """
         try:
             # Переходим на главную страницу
-            self.driver.get(self.site_url)
+            self.page.goto(self.site_url, wait_until='networkidle')
 
             # Ждем появления поля ввода
-            url_input = self.wait.until(EC.presence_of_element_located((By.ID, "url")))
+            url_input = self.page.wait_for_selector('#url', state='visible')
 
             # Очищаем поле и вводим URL
-            url_input.clear()
-            url_input.send_keys(spotify_url)
+            url_input.fill('')
+            url_input.type(spotify_url)
 
             # Находим и нажимаем кнопку отправки
-            submit_btn = self.wait.until(EC.element_to_be_clickable((By.ID, "send")))
+            submit_btn = self.page.wait_for_selector('#send', state='visible')
             submit_btn.click()
 
             # Ждем появления результатов
-            self.wait.until(EC.presence_of_element_located((By.CSS_SELECTOR, "form[name='submitspurl']")))
+            self.page.wait_for_selector('form[name="submitspurl"]', state='visible')
 
             logger.info(f"URL успешно отправлен: {spotify_url}")
             return True
 
-        except TimeoutException:
+        except PlaywrightTimeout:
             logger.error("Таймаут при отправке URL")
             return False
         except Exception as e:
@@ -265,7 +276,7 @@ class SpotifyParser:
             Количество треков
         """
         try:
-            buttons = self.driver.find_elements(By.CSS_SELECTOR, "form[name='submitspurl'] .abuttons.mb-0 button")
+            buttons = self.page.query_selector_all('form[name="submitspurl"] .abuttons.mb-0 button')
             return len(buttons)
         except:
             return 0
@@ -278,8 +289,8 @@ class SpotifyParser:
             Название или None
         """
         try:
-            name_element = self.driver.find_element(By.CLASS_NAME, "hover-underline")
-            return name_element.text.strip()
+            name_element = self.page.query_selector('.hover-underline')
+            return name_element.text_content().strip() if name_element else None
         except:
             return None
 
@@ -295,7 +306,7 @@ class SpotifyParser:
         """
         try:
             # Находим все формы
-            forms = self.driver.find_elements(By.CSS_SELECTOR, "form[name='submitspurl']")
+            forms = self.page.query_selector_all('form[name="submitspurl"]')
 
             if index >= len(forms):
                 logger.error(f"Индекс {index} вне диапазона (всего форм: {len(forms)})")
@@ -304,7 +315,7 @@ class SpotifyParser:
             form = forms[index]
 
             # Извлекаем данные из скрытого поля
-            data_input = form.find_element(By.NAME, "data")
+            data_input = form.query_selector('input[name="data"]')
             data_value = data_input.get_attribute("value")
 
             # Декодируем base64
@@ -340,7 +351,7 @@ class SpotifyParser:
         """
         try:
             # Находим все кнопки
-            buttons = self.driver.find_elements(By.CSS_SELECTOR, "form[name='submitspurl'] .abuttons.mb-0 button")
+            buttons = self.page.query_selector_all('form[name="submitspurl"] .abuttons.mb-0 button')
 
             if index >= len(buttons):
                 logger.error(f"Индекс кнопки {index} вне диапазона")
@@ -349,7 +360,7 @@ class SpotifyParser:
             button = buttons[index]
 
             # Скроллим к кнопке
-            self.driver.execute_script("arguments[0].scrollIntoView({behavior: 'smooth', block: 'center'});", button)
+            button.scroll_into_view_if_needed()
 
             # Небольшая задержка перед кликом
             time.sleep(0.5)
@@ -372,17 +383,15 @@ class SpotifyParser:
         """
         try:
             # Ждем появления блока скачивания
-            self.wait.until(EC.presence_of_element_located((By.CSS_SELECTOR, ".spotidown-downloader")))
+            self.page.wait_for_selector('.spotidown-downloader', state='visible')
 
             # Ждем появления ссылок для скачивания
-            self.wait.until(
-                EC.presence_of_all_elements_located((By.CSS_SELECTOR, ".spotidown-downloader-right .abuttons.mb-0 a"))
-            )
+            self.page.wait_for_selector('.spotidown-downloader-right .abuttons.mb-0 a', state='visible')
 
             logger.debug("Страница скачивания загружена")
             return True
 
-        except TimeoutException:
+        except PlaywrightTimeout:
             logger.error("Таймаут ожидания страницы скачивания")
             return False
         except Exception as e:
@@ -398,7 +407,7 @@ class SpotifyParser:
         """
         try:
             # Находим все ссылки
-            download_links = self.driver.find_elements(By.CSS_SELECTOR, ".spotidown-downloader-right .abuttons.mb-0 a")
+            download_links = self.page.query_selector_all('.spotidown-downloader-right .abuttons.mb-0 a')
 
             if len(download_links) < 2:
                 logger.error(f"Недостаточно ссылок: {len(download_links)}")
@@ -553,7 +562,9 @@ class SpotifyParser:
         # Отправляем URL
         if not self.submit_url(spotify_url):
             return DownloadResult(
-                track=TrackMetadata(name="Unknown", artists=["Unknown"]), success=False, error="Не удалось отправить URL"
+                track=TrackMetadata(name="Unknown", artists=["Unknown"]), 
+                success=False, 
+                error="Не удалось отправить URL"
             )
 
         # Скачиваем первый (и единственный) трек
@@ -586,7 +597,7 @@ class SpotifyParser:
 # Пример использования
 if __name__ == "__main__":
     # Создаем парсер
-    parser = SpotifyParser(cache_dir="./spotify_cache")
+    parser = SpotifyParser(cache_dir="./spotify_cache", headless=True)
 
     try:
         # Запускаем браузер
@@ -597,7 +608,7 @@ if __name__ == "__main__":
 
         # 1. Скачивание одного трека
         print("\n=== Скачивание одного трека ===")
-        track_url = "https://open.spotify.com/track/4cOdK2wGLETKBW3PvgPWqT"  # Пример
+        track_url = "https://open.spotify.com/track/4cOdK2wGLETKBW3PvgPWqT"
         result = parser.download_single_track(track_url)
 
         if result.success:
@@ -609,7 +620,7 @@ if __name__ == "__main__":
 
         # 2. Скачивание плейлиста (первые 3 трека)
         print("\n=== Скачивание плейлиста ===")
-        playlist_url = "https://open.spotify.com/playlist/37i9dQZF1DXcBWIGoYBM5M"  # Пример
+        playlist_url = "https://open.spotify.com/playlist/37i9dQZF1DXcBWIGoYBM5M"
         results = parser.download_playlist(playlist_url, max_tracks=3)
 
         for i, result in enumerate(results, 1):

@@ -1,5 +1,5 @@
 {
-  description = "Python Dev Flake (Local Wheels + PyPI)";
+  description = "Python Dev Flake with Playwright";
 
   inputs = {
     nixpkgs.url = "github:NixOS/nixpkgs/nixos-unstable";
@@ -14,102 +14,117 @@
         # Версия Python
         python = pkgs.python313;
 
-        # Путь к локальным колесам (через переменную окружения shell, не хардкод в nix)
+        # Путь к локальным колесам
         localWhlDir = "$HOME/Downloads/libs/python";
 
-        # Библиотеки, необходимые для работы многих Python C-extensions (numpy, pandas, psycopg2 и т.д.)
-        # Без этого pip install часто падает с ошибкой "library not found".
+        # Python окружение с Playwright из nixpkgs
+        pythonEnv = python.withPackages (ps: with ps; [
+          playwright
+          requests
+          python-dotenv
+        ]);
+
+        # Библиотеки для Python C-extensions + Playwright
         runtimeLibs = with pkgs; [
           stdenv.cc.cc.lib
-          zlib
-          glib
-          libGL
+          zlib glib libGL
           libxkbcommon
+          # Дополнительные библиотеки для Playwright
+          nspr nss
+          at-spi2-atk
+          cups libdrm
+          gtk3 pango cairo
+          mesa libxshmfence
+          alsa-lib
+          expat
+          libxcomposite
+          libxdamage
+          libxfixes
+          libxrandr
         ];
       in
       {
         devShells.default = pkgs.mkShell {
-          name = "python-dev-env";
+          name = "python-playwright-env";
           
           buildInputs = [ 
-            python 
-            # Добавляем утилиты для сборки, если вдруг придется компилировать пакет
+            pythonEnv
             pkgs.gcc 
             pkgs.pkg-config
-            pkgs.chromium
-            pkgs.chromedriver
+            pkgs.playwright-driver.browsers
           ] ++ runtimeLibs;
 
-          # Магия для того, чтобы Python пакеты видели системные библиотеки NixOS
+          # Playwright требует много системных библиотек
           LD_LIBRARY_PATH = "${pkgs.lib.makeLibraryPath runtimeLibs}";
 
+          # Указываем путь к браузерам Playwright
+          PLAYWRIGHT_BROWSERS_PATH = "${pkgs.playwright-driver.browsers}";
+          PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD = "1";
+
           shellHook = ''
-            export CHROME_BIN=${pkgs.chromium}/bin/chromium
-            # Сброс даты для корректной работы pip wheel (иногда ломается в Nix)
+            # Сброс даты для pip
             unset SOURCE_DATE_EPOCH
             
-            echo "🐍 Python Environment (2025) | Python ${python.version}"
+            echo "🐍 Python Environment with Playwright | Python ${python.version}"
             echo "📂 Wheel Source: ${localWhlDir}"
+            echo "🎭 Playwright Browsers: $PLAYWRIGHT_BROWSERS_PATH"
+            echo ""
+            echo "⚠️  ВАЖНО: Playwright установлен через Nix (не pip)"
+            echo "   Не устанавливайте playwright через pip!"
 
-            # 1. Создаем venv
+            # Создаем venv для дополнительных пакетов
             if [ ! -d ".venv" ]; then
                 echo "🚀 Creating virtual environment..."
-                python -m venv .venv
+                python -m venv .venv --system-site-packages
             fi
             source .venv/bin/activate
 
-            # 2. Функция установки зависимостей
+            # Функция установки дополнительных зависимостей
             install_deps() {
                 if [ -f "requirements.txt" ]; then
-                    if [ -d "${localWhlDir}" ]; then
-                        echo "📦 Installing from LOCAL WHEELS..."
-                        # --no-index не используем, чтобы pip мог пойти в интернет, если локально пакета нет.
-                        # Но --find-links имеет приоритет.
-                        pip install --find-links="${localWhlDir}" -r requirements.txt
-                    else
-                        echo "🌐 Local libs not found. Installing from PyPI..."
-                        pip install -r requirements.txt
+                    # Создаем временный requirements без playwright
+                    grep -v "^playwright" requirements.txt > /tmp/requirements_tmp.txt || true
+                    
+                    if [ -s /tmp/requirements_tmp.txt ]; then
+                        if [ -d "${localWhlDir}" ]; then
+                            echo "📦 Installing additional packages from LOCAL WHEELS..."
+                            pip install --find-links="${localWhlDir}" -r /tmp/requirements_tmp.txt
+                        else
+                            echo "🌐 Installing additional packages from PyPI..."
+                            pip install -r /tmp/requirements_tmp.txt
+                        fi
                     fi
+                    rm -f /tmp/requirements_tmp.txt
                 fi
             }
 
-            # Запускаем установку при входе (можно закомментировать, если раздражает)
+            # Запускаем установку при входе
             install_deps
 
             # --- АЛИАСЫ ---
-            # Сохранить текущее состояние
             alias req-up="pip freeze > requirements.txt"
-            
-            # Скачать пакеты в локальную папку (кэширование)
             alias cache-up="pip download -d ${localWhlDir} -r requirements.txt"
-            
-            # Полный цикл обновления: сохранил -> скачал в архив -> переустановил
             alias pip-update="req-up && cache-up && install_deps"
             
-            # Установка конкретного пакета с поиском в локальной папке
-            # Пример: install pandas
-            install() { pip install --find-links="$HOME/Downloads/libs/python" "$@"; }
+            # Установка пакета с локальным поиском
+            install() { 
+                if [ "$1" = "playwright" ]; then
+                    echo "❌ Не устанавливайте playwright через pip в NixOS!"
+                    echo "   Он уже установлен через Nix"
+                    return 1
+                fi
+                pip install --find-links="${localWhlDir}" "$@"
+            }
+            
+            echo ""
+            echo "💡 Полезные команды:"
+            echo "   install <package>  - установка пакета"
+            echo "   req-up            - сохранить зависимости"
+            echo "   cache-up          - скачать в кэш"
+            echo "   pip-update        - полное обновление"
+            echo ""
+            echo "🎭 Playwright готов к работе!"
           '';
-        };
-
-        apps.setup = {
-          type = "app";
-          program = toString (pkgs.writeShellScript "setup-project" ''
-            mkdir -p src tests
-            if [ ! -f "requirements.txt" ]; then
-                touch requirements.txt
-                echo "# Add your dependencies here" > requirements.txt
-            fi
-            
-            # Создаем .gitignore
-            if [ ! -f ".gitignore" ]; then
-                echo ".venv/" >> .gitignore
-                echo "__pycache__/" >> .gitignore
-                echo ".env" >> .gitignore
-            fi
-            
-            echo "✅ Project structure ready."
-          '');
         };
       }
     );
