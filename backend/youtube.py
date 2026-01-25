@@ -1,7 +1,11 @@
 import yt_dlp
+import sys
 from pathlib import Path
-import sqlite3
 import logging as log
+
+root_dir = Path(__file__).resolve().parent.parent
+sys.path.append(str(root_dir))
+
 from data.db import DB
 
 
