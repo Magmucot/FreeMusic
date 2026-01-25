@@ -70,6 +70,11 @@ class SpotifyParser:
 
     def _setup_chrome_options(self):
         """Настройка опций Chrome"""
+        import os
+        
+        # Указываем путь к бинарнику Chromium из переменной, которую мы создали во Flake
+        chrome_bin = os.getenv("CHROME_BIN")
+        if chrome_bin: self.chrome_options.binary_location = chrome_bin
         self.chrome_options.add_argument("--headless=new")
         self.chrome_options.add_argument("--disable-gpu")
         self.chrome_options.add_argument("--no-sandbox")

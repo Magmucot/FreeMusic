@@ -1,10 +1,13 @@
 /*
 
-!/backend
-!/frontend
+!backend/
+!frontend/
 
-!/data/
+!data/
 !music.bd
+
+!flake.nix
+!flake.lock
 
 !LICENSE
 !.gitignoge
