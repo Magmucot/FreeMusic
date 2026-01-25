@@ -6,7 +6,7 @@ import requests
 from pathlib import Path
 from typing import Dict, List, Optional, Union, Tuple
 from dataclasses import dataclass, field
-import logging
+import logging as log
 
 from selenium import webdriver
 from selenium.webdriver.common.by import By
@@ -14,10 +14,16 @@ from selenium.webdriver.chrome.options import Options
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
 from selenium.common.exceptions import TimeoutException, NoSuchElementException, WebDriverException
+import sys
+
+root_dir = Path(__file__).resolve().parent.parent
+sys.path.append(str(root_dir))
+
+from data.db import DB
 
 # Настройка логирования
-logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(name)s - %(levelname)s - %(message)s")
-logger = logging.getLogger(__name__)
+log.basicConfig(level=log.INFO, format="%(asctime)s - %(name)s - %(levelname)s - %(message)s")
+logger = log.getLogger(__name__)
 
 
 @dataclass
@@ -70,11 +76,6 @@ class SpotifyParser:
 
     def _setup_chrome_options(self):
         """Настройка опций Chrome"""
-        import os
-        
-        # Указываем путь к бинарнику Chromium из переменной, которую мы создали во Flake
-        chrome_bin = os.getenv("CHROME_BIN")
-        if chrome_bin: self.chrome_options.binary_location = chrome_bin
         self.chrome_options.add_argument("--headless=new")
         self.chrome_options.add_argument("--disable-gpu")
         self.chrome_options.add_argument("--no-sandbox")
@@ -267,7 +268,7 @@ class SpotifyParser:
         try:
             buttons = self.driver.find_elements(By.CSS_SELECTOR, "form[name='submitspurl'] .abuttons.mb-0 button")
             return len(buttons)
-        except:
+        except Exception:
             return 0
 
     def get_playlist_name(self) -> Optional[str]:
@@ -280,7 +281,7 @@ class SpotifyParser:
         try:
             name_element = self.driver.find_element(By.CLASS_NAME, "hover-underline")
             return name_element.text.strip()
-        except:
+        except Exception:
             return None
 
     def extract_track_metadata(self, index: int) -> Optional[TrackMetadata]:
