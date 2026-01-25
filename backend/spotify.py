@@ -6,13 +6,13 @@ import requests
 from pathlib import Path
 from typing import Dict, List, Optional, Union
 from dataclasses import dataclass
-import logging
+import logging as log
 
 from playwright.sync_api import sync_playwright, Page, Browser, BrowserContext, TimeoutError as PlaywrightTimeout
 
 # Настройка логирования
-logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(name)s - %(levelname)s - %(message)s")
-logger = logging.getLogger(__name__)
+log.basicConfig(level=log.INFO, format="%(asctime)s - %(name)s - %(levelname)s - %(message)s")
+logger = log.getLogger(__name__)
 
 
 @dataclass
@@ -278,7 +278,7 @@ class SpotifyParser:
         try:
             buttons = self.page.query_selector_all('form[name="submitspurl"] .abuttons.mb-0 button')
             return len(buttons)
-        except:
+        except Exception:
             return 0
 
     def get_playlist_name(self) -> Optional[str]:
