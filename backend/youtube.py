@@ -36,7 +36,7 @@ class YoutubeDownloader:
                 return info_dict["entries"][0]
             return info_dict
 
-    def _extract_data(self, info_dict: dict, codec: str) -> (str, str, dict):
+    def _extract_data(self, info_dict: dict, codec: str) -> (str, dict):
         """
         Фильтрует 'грязный' словарь yt_dlp и приводит его к виду TrackModel.
         """
@@ -49,12 +49,9 @@ class YoutubeDownloader:
         if not filepath and "filename" in info_dict:
             filepath = info_dict["filename"]
         title = info_dict.get("title", "Unknown")
-        t_id = str(hash(title))
         return (
-            t_id,
             title,
             {
-                "track_id": t_id,
                 "title": title,
                 "uploader": info_dict.get("uploader"),
                 "duration": info_dict.get("duration", 0),
@@ -99,9 +96,9 @@ class YoutubeDownloader:
 
             if info_dict:
                 # 2. Подготавливаем чистые данные для модели
-                t_id, title, clean_data = self._extract_data(info_dict, codec)
+                title, clean_data = self._extract_data(info_dict, codec)
 
-                await loop.run_in_executor(None, self.db.save_data, t_id, title, clean_data)
+                await loop.run_in_executor(None, self.db.save_data, title, clean_data)
 
                 logr.info(f"Успешно сохранено в БД: {clean_data['title']}")
 

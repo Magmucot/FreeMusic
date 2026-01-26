@@ -2,6 +2,7 @@ from sqlalchemy import create_engine, Column, String, Integer, DateTime, Foreign
 from sqlalchemy.orm import sessionmaker, declarative_base, relationship
 from datetime import datetime
 import logging as log
+import hashlib
 
 Base = declarative_base()
 
@@ -53,7 +54,11 @@ class DBManager:
                 return None
             return track
 
-    def save_data(self, track_id, title, metadata) -> None:
+    def get_id(self, text: str) -> str:
+        full_hash = hashlib.sha256(text.encode("utf-8")).hexdigest()
+        return full_hash[:16]
+
+    def save_data(self, title, metadata) -> None:
         """
         Принимает объект TrackModel.
         session.merge сам проверит ID:
@@ -62,8 +67,9 @@ class DBManager:
         """
         with self.Session() as session:
             try:
-                new_track = Track(id=track_id, title=title)
-                new_meta = TrackMetadata(track_id=track_id, **metadata)
+                t_id = self.get_id(title)
+                new_track = Track(id=t_id, title=title)
+                new_meta = TrackMetadata(track_id=t_id, **metadata)
 
                 new_track.metadata_info = new_meta
                 session.merge(new_track)
