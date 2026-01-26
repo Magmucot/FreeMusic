@@ -60,6 +60,7 @@ cd FreeMusic
 Установите зависимости для бэкенда:
 ```
 pip install -r backend/requirements.txt
+playwright install
 ```
 3.Запустите серверную часть:
 ```

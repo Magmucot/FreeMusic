@@ -1,18 +1,28 @@
 import re
 import json
-import time
+import asyncio
 import base64
-import requests
-from pathlib import Path
-from typing import Dict, List, Optional, Union
-from dataclasses import dataclass
 import logging as log
+import sys
+from pathlib import Path
+from dataclasses import dataclass
+from typing import Optional, Union
 
-from playwright.sync_api import sync_playwright, Page, Browser, BrowserContext, TimeoutError as PlaywrightTimeout
+# Новые асинхронные библиотеки
+import aiohttp
+import aiofiles
+from playwright.async_api import async_playwright, Page, Browser, BrowserContext, TimeoutError as PlaywrightTimeout
+
+# Убираем лишний импорт БД, если он не нужен для демо
+# from data.db import DBManager
 
 # Настройка логирования
-log.basicConfig(level=log.INFO, format="%(asctime)s - %(name)s - %(levelname)s - %(message)s")
-logger = log.getLogger(__name__)
+log.basicConfig(
+    level=log.INFO,
+    format="%(asctime)s - %(levelname)s - %(message)s",
+    handlers=[log.FileHandler("log/spotify_async.log", encoding="utf-8"), log.StreamHandler()],
+)
+logr = log.getLogger(__name__)
 
 
 @dataclass
@@ -20,7 +30,7 @@ class TrackMetadata:
     """Метаданные трека"""
 
     name: str
-    artists: List[str]
+    artists: list[str]
     album: str = ""
     duration: str = ""
 
@@ -41,592 +51,305 @@ class DownloadResult:
 
 
 class SpotifyParser:
-    """Парсер для скачивания треков с Spotify через spotidown.app"""
+    """Асинхронный парсер для скачивания треков"""
 
     def __init__(self, cache_dir: Union[str, Path] = "./cache", headless: bool = True):
-        """
-        Инициализация парсера
-
-        Args:
-            cache_dir: Директория для кеширования файлов
-            headless: Запускать браузер в фоновом режиме
-        """
         self.cache_dir = Path(cache_dir)
         self.cache_dir.mkdir(parents=True, exist_ok=True)
-
         self.site_url = "https://spotidown.app/en"
         self.headless = headless
-        
-        # Playwright объекты
+
         self.playwright = None
         self.browser: Optional[Browser] = None
         self.context: Optional[BrowserContext] = None
         self.page: Optional[Page] = None
 
-        logger.info(f"Инициализирован SpotifyParser, кеш: {self.cache_dir}")
+        logr.info(f"Инициализирован Async SpotifyParser, кеш: {self.cache_dir}")
 
-    def start(self):
-        """Запуск браузера"""
+    async def start(self):
+        """Асинхронный запуск браузера"""
         try:
-            logger.info("Запуск Playwright браузера...")
-            
-            # Запускаем Playwright
-            self.playwright = sync_playwright().start()
-            
-            # Запускаем браузер (Chromium по умолчанию)
-            self.browser = self.playwright.chromium.launch(
-                headless=self.headless,
-                args=[
-                    '--disable-blink-features=AutomationControlled',
-                    '--disable-dev-shm-usage',
-                    '--no-sandbox',
-                ]
+            logr.info("Запуск Playwright (Async)...")
+
+            self.playwright = await async_playwright().start()
+
+            self.browser = await self.playwright.chromium.launch(
+                headless=self.headless, args=["--disable-blink-features=AutomationControlled", "--no-sandbox"]
             )
-            
-            # Создаем контекст с настройками
-            self.context = self.browser.new_context(
-                viewport={'width': 1920, 'height': 1080},
-                user_agent='Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-                locale='en-US',
+
+            self.context = await self.browser.new_context(
+                viewport={"width": 1920, "height": 1080},
+                user_agent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
             )
-            
-            # Создаем страницу
-            self.page = self.context.new_page()
-            
-            # Устанавливаем таймауты
-            self.page.set_default_timeout(30000)  # 30 секунд
-            
-            # Открываем главную страницу
-            self.page.goto(self.site_url, wait_until='networkidle')
-            
-            logger.info("Браузер успешно запущен")
+
+            self.page = await self.context.new_page()
+            self.page.set_default_timeout(30000)
+
+            await self.page.goto(self.site_url, wait_until="networkidle")
+
+            logr.info("Браузер успешно запущен")
             return True
-            
+
         except Exception as e:
-            logger.error(f"Ошибка запуска браузера: {e}")
-            self.stop()
+            logr.error(f"Ошибка запуска: {e}")
+            await self.stop()
             return False
 
-    def stop(self):
-        """Остановка браузера"""
+    async def stop(self):
+        """Асинхронная остановка"""
         try:
             if self.page:
-                self.page.close()
-                self.page = None
-            
+                await self.page.close()
             if self.context:
-                self.context.close()
-                self.context = None
-            
+                await self.context.close()
             if self.browser:
-                self.browser.close()
-                self.browser = None
-            
+                await self.browser.close()
             if self.playwright:
-                self.playwright.stop()
-                self.playwright = None
-            
-            logger.info("Браузер остановлен")
-            
+                await self.playwright.stop()
+            logr.info("Браузер остановлен")
         except Exception as e:
-            logger.error(f"Ошибка при остановке браузера: {e}")
-
-    def is_running(self) -> bool:
-        """Проверка, запущен ли браузер"""
-        return self.page is not None and not self.page.is_closed()
+            logr.error(f"Ошибка остановки: {e}")
 
     @staticmethod
     def safe_filename(text: str, max_length: int = 100) -> str:
-        """
-        Создание безопасного имени файла
-
-        Args:
-            text: Исходный текст
-            max_length: Максимальная длина
-
-        Returns:
-            Безопасное имя файла
-        """
-        # Удаляем недопустимые символы
         text = re.sub(r'[<>:"/\\|?*]', "", text)
-        # Заменяем несколько пробелов на один
         text = re.sub(r"\s+", " ", text)
-        # Обрезаем до максимальной длины
         return text.strip()[:max_length]
 
-    def download_file(self, url: str, filename: str) -> Optional[Path]:
+    async def download_file(self, url: str, filename: str) -> Optional[Path]:
         """
-        Скачивание файла
-
-        Args:
-            url: URL файла
-            filename: Имя файла для сохранения
-
-        Returns:
-            Путь к скачанному файлу или None при ошибке
+        Асинхронное скачивание файла через aiohttp
         """
         try:
             filepath = self.cache_dir / filename
-
-            # Если файл уже существует, возвращаем его
             if filepath.exists():
-                logger.debug(f"Файл уже существует: {filename}")
+                logr.debug(f"Файл существует: {filename}")
                 return filepath
 
-            logger.info(f"Скачивание: {filename}")
+            logr.info(f"Скачивание (Async): {filename}")
 
-            # Настраиваем заголовки для имитации браузера
             headers = {
                 "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
-                "Accept": "*/*",
-                "Accept-Language": "ru-RU,ru;q=0.9,en-US;q=0.8,en;q=0.7",
                 "Referer": "https://spotidown.app/",
-                "Origin": "https://spotidown.app",
             }
 
-            response = requests.get(url, headers=headers, stream=True, timeout=60)
-            response.raise_for_status()
+            # Используем aiohttp для асинхронных запросов
+            async with aiohttp.ClientSession() as session:
+                async with session.get(url, headers=headers, timeout=60) as response:
+                    if response.status != 200:
+                        logr.error(f"Ошибка HTTP {response.status} для {filename}")
+                        return None
 
-            # Сохраняем файл
-            total_size = int(response.headers.get("content-length", 0))
-            downloaded = 0
+                    # Читаем и пишем файл асинхронно
+                    content = await response.read()
+                    async with aiofiles.open(filepath, "wb") as f:
+                        await f.write(content)
 
-            with open(filepath, "wb") as f:
-                for chunk in response.iter_content(chunk_size=8192):
-                    if chunk:
-                        f.write(chunk)
-                        downloaded += len(chunk)
-
-            logger.info(f"Скачан: {filename} ({downloaded / 1024 / 1024:.1f} MB)")
+            size_mb = len(content) / 1024 / 1024
+            logr.info(f"Скачан: {filename} ({size_mb:.1f} MB)")
             return filepath
 
-        except requests.RequestException as e:
-            logger.error(f"Ошибка скачивания {filename}: {e}")
-            return None
         except Exception as e:
-            logger.error(f"Неожиданная ошибка при скачивании {filename}: {e}")
+            logr.error(f"Ошибка скачивания {filename}: {e}")
             return None
 
-    def extract_spotify_url(self, text: str) -> Optional[str]:
-        """
-        Извлечение Spotify URL из текста
-
-        Args:
-            text: Текст с ссылкой
-
-        Returns:
-            Извлеченный URL или None
-        """
-        # Паттерны для Spotify ссылок
-        patterns = [
-            r"(https?://open\.spotify\.com/(track|playlist|album)/[a-zA-Z0-9]+(?:\?[^ \n]*)?)",
-            r"(spotify:(track|playlist|album):[a-zA-Z0-9]+)",
-        ]
-
-        for pattern in patterns:
-            match = re.search(pattern, text)
-            if match:
-                return match.group(1)
-
-        return None
-
-    def submit_url(self, spotify_url: str) -> bool:
-        """
-        Отправка Spotify URL на сайт
-
-        Args:
-            spotify_url: Spotify ссылка
-
-        Returns:
-            Успешно ли отправлено
-        """
+    async def submit_url(self, spotify_url: str) -> bool:
+        """Отправка URL"""
         try:
-            # Переходим на главную страницу
-            self.page.goto(self.site_url, wait_until='networkidle')
+            await self.page.goto(self.site_url, wait_until="networkidle")
 
-            # Ждем появления поля ввода
-            url_input = self.page.wait_for_selector('#url', state='visible')
+            # В Playwright async нужно использовать await для локаторов и действий
+            url_input = self.page.locator("#url")
+            await url_input.wait_for(state="visible")
 
-            # Очищаем поле и вводим URL
-            url_input.fill('')
-            url_input.type(spotify_url)
+            await url_input.fill("")
+            await url_input.type(spotify_url)
 
-            # Находим и нажимаем кнопку отправки
-            submit_btn = self.page.wait_for_selector('#send', state='visible')
-            submit_btn.click()
+            submit_btn = self.page.locator("#send")
+            await submit_btn.click()
 
-            # Ждем появления результатов
-            self.page.wait_for_selector('form[name="submitspurl"]', state='visible')
-
-            logger.info(f"URL успешно отправлен: {spotify_url}")
+            await self.page.wait_for_selector('form[name="submitspurl"]', state="visible")
             return True
 
-        except PlaywrightTimeout:
-            logger.error("Таймаут при отправке URL")
-            return False
         except Exception as e:
-            logger.error(f"Ошибка при отправке URL: {e}")
+            logr.error(f"Ошибка отправки URL: {e}")
             return False
 
-    def get_track_count(self) -> int:
-        """
-        Получение количества треков на странице
-
-        Returns:
-            Количество треков
-        """
+    async def get_track_cnt(self) -> int:
         try:
-            buttons = self.page.query_selector_all('form[name="submitspurl"] .abuttons.mb-0 button')
+            # await нужен, так как query_selector_all асинхронный
+            buttons = await self.page.query_selector_all('form[name="submitspurl"] .abuttons.mb-0 button')
             return len(buttons)
         except Exception:
             return 0
 
-    def get_playlist_name(self) -> Optional[str]:
-        """
-        Получение названия плейлиста/альбома
-
-        Returns:
-            Название или None
-        """
+    async def get_playlist_name(self) -> Optional[str]:
         try:
-            name_element = self.page.query_selector('.hover-underline')
-            return name_element.text_content().strip() if name_element else None
-        except:
+            name_element = await self.page.query_selector(".hover-underline")
+            return await name_element.text_content() if name_element else None
+        except Exception:
             return None
 
-    def extract_track_metadata(self, index: int) -> Optional[TrackMetadata]:
-        """
-        Извлечение метаданных трека по индексу
-
-        Args:
-            index: Индекс трека (0-based)
-
-        Returns:
-            Метаданные трека или None
-        """
+    async def extract_track_metadata(self, index: int) -> Optional[TrackMetadata]:
         try:
-            # Находим все формы
-            forms = self.page.query_selector_all('form[name="submitspurl"]')
-
+            forms = await self.page.query_selector_all('form[name="submitspurl"]')
             if index >= len(forms):
-                logger.error(f"Индекс {index} вне диапазона (всего форм: {len(forms)})")
                 return None
 
             form = forms[index]
+            data_input = await form.query_selector('input[name="data"]')
+            data_value = await data_input.get_attribute("value")
 
-            # Извлекаем данные из скрытого поля
-            data_input = form.query_selector('input[name="data"]')
-            data_value = data_input.get_attribute("value")
-
-            # Декодируем base64
             data_decoded = base64.b64decode(data_value)
             track_data = json.loads(data_decoded)
 
-            # Извлекаем метаданные
             track_name = track_data.get("name", "Unknown Track")
             artist = track_data.get("artist", "Unknown Artist")
             album = track_data.get("album", "")
 
-            # Разделяем исполнителей
-            if "," in artist:
-                artists = [a.strip() for a in artist.split(",")]
-            else:
-                artists = [artist]
-
+            artists = [a.strip() for a in artist.split(",")] if "," in artist else [artist]
             return TrackMetadata(name=track_name, artists=artists, album=album)
 
         except Exception as e:
-            logger.error(f"Ошибка извлечения метаданных трека {index}: {e}")
+            logr.error(f"Ошибка метаданных: {e}")
             return None
 
-    def click_track_button(self, index: int) -> bool:
-        """
-        Клик по кнопке трека
-
-        Args:
-            index: Индекс трека
-
-        Returns:
-            Успешно ли выполнен клик
-        """
+    async def click_track_button(self, index: int) -> bool:
         try:
-            # Находим все кнопки
-            buttons = self.page.query_selector_all('form[name="submitspurl"] .abuttons.mb-0 button')
-
+            buttons = await self.page.query_selector_all('form[name="submitspurl"] .abuttons.mb-0 button')
             if index >= len(buttons):
-                logger.error(f"Индекс кнопки {index} вне диапазона")
                 return False
 
             button = buttons[index]
+            await button.scroll_into_view_if_needed()
 
-            # Скроллим к кнопке
-            button.scroll_into_view_if_needed()
+            # Асинхронная пауза
+            await asyncio.sleep(0.5)
 
-            # Небольшая задержка перед кликом
-            time.sleep(0.5)
-
-            # Кликаем
-            button.click()
-            logger.debug(f"Клик по кнопке трека {index}")
+            await button.click()
             return True
-
         except Exception as e:
-            logger.error(f"Ошибка клика по кнопке трека {index}: {e}")
+            logr.error(f"Ошибка клика: {e}")
             return False
 
-    def wait_for_download_page(self) -> bool:
-        """
-        Ожидание загрузки страницы скачивания
-
-        Returns:
-            Загрузилась ли страница
-        """
+    async def wait_for_download_page(self) -> bool:
         try:
-            # Ждем появления блока скачивания
-            self.page.wait_for_selector('.spotidown-downloader', state='visible')
-
-            # Ждем появления ссылок для скачивания
-            self.page.wait_for_selector('.spotidown-downloader-right .abuttons.mb-0 a', state='visible')
-
-            logger.debug("Страница скачивания загружена")
+            await self.page.wait_for_selector(".spotidown-downloader", state="visible")
+            await self.page.wait_for_selector(".spotidown-downloader-right .abuttons.mb-0 a", state="visible")
             return True
-
-        except PlaywrightTimeout:
-            logger.error("Таймаут ожидания страницы скачивания")
-            return False
-        except Exception as e:
-            logger.error(f"Ошибка ожидания страницы скачивания: {e}")
+        except Exception:
             return False
 
-    def get_download_links(self) -> Optional[Dict[str, str]]:
-        """
-        Получение ссылок для скачивания
-
-        Returns:
-            Словарь с ссылками {'mp3': url, 'cover': url} или None
-        """
+    async def get_download_links(self) -> Optional[dict[str, str]]:
         try:
-            # Находим все ссылки
-            download_links = self.page.query_selector_all('.spotidown-downloader-right .abuttons.mb-0 a')
-
-            if len(download_links) < 2:
-                logger.error(f"Недостаточно ссылок: {len(download_links)}")
+            links = await self.page.query_selector_all(".spotidown-downloader-right .abuttons.mb-0 a")
+            if len(links) < 2:
                 return None
 
-            # Первая ссылка - MP3, вторая - обложка
-            mp3_link = download_links[0].get_attribute("href")
-            cover_link = download_links[1].get_attribute("href")
-
-            if not mp3_link or not cover_link:
-                logger.error("Не удалось получить ссылки")
-                return None
-
+            mp3_link = await links[0].get_attribute("href")
+            cover_link = await links[1].get_attribute("href")
             return {"mp3": mp3_link, "cover": cover_link}
-
-        except Exception as e:
-            logger.error(f"Ошибка получения ссылок: {e}")
+        except Exception:
             return None
 
-    def download_track(self, index: int) -> DownloadResult:
-        """
-        Скачивание одного трека по индексу
-
-        Args:
-            index: Индекс трека
-
-        Returns:
-            Результат скачивания
-        """
-        # Извлекаем метаданные
-        metadata = self.extract_track_metadata(index)
+    async def download_track(self, index: int) -> DownloadResult:
+        metadata = await self.extract_track_metadata(index)
         if not metadata:
-            return DownloadResult(
-                track=TrackMetadata(name="Unknown", artists=["Unknown"]),
-                success=False,
-                error="Не удалось извлечь метаданные",
-            )
+            return DownloadResult(TrackMetadata("Err", []), success=False, error="Metadata fail")
 
-        logger.info(f"Скачивание: {metadata.artist} - {metadata.name}")
+        logr.info(f"Обработка: {metadata.artist} - {metadata.name}")
 
-        # Кликаем по кнопке трека
-        if not self.click_track_button(index):
-            return DownloadResult(track=metadata, success=False, error="Не удалось нажать кнопку трека")
+        if not await self.click_track_button(index):
+            return DownloadResult(metadata, success=False, error="Click fail")
 
-        # Ждем загрузки страницы скачивания
-        if not self.wait_for_download_page():
-            return DownloadResult(track=metadata, success=False, error="Страница скачивания не загрузилась")
+        if not await self.wait_for_download_page():
+            return DownloadResult(metadata, success=False, error="Page load fail")
 
-        # Получаем ссылки для скачивания
-        links = self.get_download_links()
+        links = await self.get_download_links()
         if not links:
-            return DownloadResult(track=metadata, success=False, error="Не удалось получить ссылки для скачивания")
+            return DownloadResult(metadata, success=False, error="No links")
 
-        # Скачиваем файлы
+        # Скачиваем файлы (можно было бы параллельно через asyncio.gather, но для простоты последовательно)
+        audio_name = f"{self.safe_filename(metadata.artist)} - {self.safe_filename(metadata.name)}.mp3"
+        cover_name = f"{self.safe_filename(metadata.artist)} - {self.safe_filename(metadata.name)}.jpg"
+
         audio_file = None
         cover_file = None
 
-        # Скачиваем MP3
-        if "mp3" in links and links["mp3"]:
-            audio_filename = f"{self.safe_filename(metadata.artist)} - {self.safe_filename(metadata.name)}.mp3"
-            audio_file = self.download_file(links["mp3"], audio_filename)
+        if links.get("mp3"):
+            audio_file = await self.download_file(links["mp3"], audio_name)
 
-        # Скачиваем обложку
-        if "cover" in links and links["cover"]:
-            cover_filename = f"{self.safe_filename(metadata.artist)} - {self.safe_filename(metadata.name)}.jpg"
-            cover_file = self.download_file(links["cover"], cover_filename)
+        if links.get("cover"):
+            cover_file = await self.download_file(links["cover"], cover_name)
 
-        # Проверяем успешность
-        success = audio_file is not None and audio_file.exists()
+        success = audio_file is not None
+        return DownloadResult(metadata, audio_file, cover_file, success=success)
 
-        return DownloadResult(
-            track=metadata,
-            audio_file=audio_file,
-            cover_file=cover_file,
-            success=success,
-            error=None if success else "Не удалось скачать аудиофайл",
-        )
+    async def download_playlist(self, spotify_url: str, max_tracks: int = 0) -> list[DownloadResult]:
+        res = []
+        if not await self.submit_url(spotify_url):
+            return res
 
-    def download_playlist(self, spotify_url: str, max_tracks: int = None) -> List[DownloadResult]:
-        """
-        Скачивание плейлиста/альбома
+        track_cnt = await self.get_track_cnt()
+        playlist_name = await self.get_playlist_name()
+        logr.info(f"Плейлист: {playlist_name}, треков: {track_cnt}")
 
-        Args:
-            spotify_url: Spotify ссылка на плейлист/альбом
-            max_tracks: Максимальное количество треков (None - все)
+        limit = track_cnt if not max_tracks else min(max_tracks, track_cnt)
 
-        Returns:
-            Список результатов скачивания
-        """
-        results = []
-
-        # Отправляем URL
-        if not self.submit_url(spotify_url):
-            logger.error("Не удалось отправить URL")
-            return results
-
-        # Получаем количество треков
-        track_count = self.get_track_count()
-        if track_count == 0:
-            logger.error("Треки не найдены")
-            return results
-
-        # Получаем название плейлиста
-        playlist_name = self.get_playlist_name()
-        logger.info(f"Плейлист: {playlist_name}, треков: {track_count}")
-
-        # Определяем сколько треков скачивать
-        if max_tracks is None:
-            max_tracks = track_count
-        else:
-            max_tracks = min(max_tracks, track_count)
-
-        # Скачиваем треки
-        for i in range(max_tracks):
-            logger.info(f"Трек {i + 1}/{max_tracks}")
-
-            # Возвращаемся к списку треков (обновляем страницу)
+        for i in range(limit):
+            # Перезагружаем страницу списка, если это не первый трек
             if i > 0:
-                if not self.submit_url(spotify_url):
-                    logger.error(f"Не удалось вернуться к списку треков для трека {i}")
+                if not await self.submit_url(spotify_url):
                     continue
 
-            # Скачиваем трек
-            result = self.download_track(i)
-            results.append(result)
+            result = await self.download_track(i)
+            res.append(result)
 
             if result.success:
-                logger.info(f"✓ Успешно: {result.track.artist} - {result.track.name}")
+                logr.info(f"✓ Готово: {result.track.name}")
             else:
-                logger.error(f"✗ Ошибка: {result.error}")
+                logr.error(f"✗ Ошибка: {result.error}")
 
-            # Небольшая пауза между треками
-            if i < max_tracks - 1:
-                time.sleep(1)
+            await asyncio.sleep(1)
 
-        # Статистика
-        successful = sum(1 for r in results if r.success)
-        logger.info(f"Готово! Успешно: {successful}/{len(results)}")
+        return res
 
-        return results
-
-    def download_single_track(self, spotify_url: str) -> DownloadResult:
-        """
-        Скачивание одного трека
-
-        Args:
-            spotify_url: Spotify ссылка на трек
-
-        Returns:
-            Результат скачивания
-        """
-        # Отправляем URL
-        if not self.submit_url(spotify_url):
-            return DownloadResult(
-                track=TrackMetadata(name="Unknown", artists=["Unknown"]), 
-                success=False, 
-                error="Не удалось отправить URL"
-            )
-
-        # Скачиваем первый (и единственный) трек
-        return self.download_track(0)
-
-    def process_url(self, spotify_url: str, max_tracks: int = None) -> List[DownloadResult]:
-        """
-        Универсальный метод обработки Spotify URL
-
-        Args:
-            spotify_url: Spotify ссылка
-            max_tracks: Максимальное количество треков (только для плейлистов/альбомов)
-
-        Returns:
-            Список результатов скачивания
-        """
-        # Определяем тип ссылки
-        if "track" in spotify_url:
-            logger.info("Обработка трека")
-            result = self.download_single_track(spotify_url)
-            return [result]
-        elif "playlist" in spotify_url or "album" in spotify_url:
-            logger.info("Обработка плейлиста/альбома")
-            return self.download_playlist(spotify_url, max_tracks)
-        else:
-            logger.error(f"Неизвестный тип Spotify URL: {spotify_url}")
-            return []
+    async def download_single_track(self, spotify_url: str) -> DownloadResult:
+        if not await self.submit_url(spotify_url):
+            return DownloadResult(TrackMetadata("Err", []), success=False, error="URL fail")
+        return await self.download_track(0)
 
 
-# Пример использования
-if __name__ == "__main__":
+# === Основной блок запуска (Entry Point) ===
+async def main():
     # Создаем парсер
-    parser = SpotifyParser(cache_dir="./spotify_cache", headless=True)
+    parser = SpotifyParser(cache_dir="./data/songs", headless=True)
 
     try:
-        # Запускаем браузер
-        if not parser.start():
-            exit(1)
+        # Асинхронный старт
+        if not await parser.start():
+            return
 
-        # Примеры использования
-
-        # 1. Скачивание одного трека
-        print("\n=== Скачивание одного трека ===")
+        # Пример 1: Трек (используйте реальную ссылку для теста!)
+        print("\n=== Тест трека ===")
+        # ВАЖНО: Замените на реальную ссылку Spotify, иначе spotidown выдаст ошибку
         track_url = "https://open.spotify.com/track/4cOdK2wGLETKBW3PvgPWqT"
-        result = parser.download_single_track(track_url)
+        result = await parser.download_single_track(track_url)
+        print(f"Результат трека: {result.success}")
 
-        if result.success:
-            print(f"Успешно скачан: {result.track.artist} - {result.track.name}")
-            print(f"Аудио: {result.audio_file}")
-            print(f"Обложка: {result.cover_file}")
-        else:
-            print(f"Ошибка: {result.error}")
-
-        # 2. Скачивание плейлиста (первые 3 трека)
-        print("\n=== Скачивание плейлиста ===")
-        playlist_url = "https://open.spotify.com/playlist/37i9dQZF1DXcBWIGoYBM5M"
-        results = parser.download_playlist(playlist_url, max_tracks=3)
-
-        for i, result in enumerate(results, 1):
-            status = "✓" if result.success else "✗"
-            print(f"{i}. {status} {result.track.artist} - {result.track.name}")
+        # Пример 2: Плейлист
+        # print("\n=== Тест плейлиста ===")
+        # playlist_url = "https://open.spotify.com/playlist/..."
+        # await parser.download_playlist(playlist_url, max_tracks=2)
 
     finally:
-        # Всегда останавливаем браузер
-        parser.stop()
+        await parser.stop()
+
+
+if __name__ == "__main__":
+    # Запускаем асинхронный цикл событий
+    if sys.platform == "win32":
+        # Фикс для Windows (Policy loop error)
+        asyncio.set_event_loop_policy(asyncio.WindowsSelectorEventLoopPolicy())
+
+    asyncio.run(main())

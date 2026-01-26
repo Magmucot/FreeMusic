@@ -5,8 +5,9 @@ import logging as log
 
 Base = declarative_base()
 
+
 class TrackModel(Base):
-    __tablename__ = 'tracks'
+    __tablename__ = "tracks"
 
     id = Column(String, primary_key=True)
     title = Column(String, nullable=False)
@@ -17,18 +18,19 @@ class TrackModel(Base):
     filepath = Column(String, nullable=True)
     created_at = Column(DateTime, default=datetime.now)
 
+
 class DBManager:
     def __init__(self, db_url="sqlite:///music_lib.db"):
-        self.engine = create_engine(db_url, connect_args={'check_same_thread': False})
-        
+        self.engine = create_engine(db_url, connect_args={"check_same_thread": False})
+
         if "sqlite" in db_url:
             with self.engine.connect() as con:
                 con.exec_driver_sql("PRAGMA journal_mode=WAL;")
-        
+
         Base.metadata.create_all(self.engine)
         self.Session = sessionmaker(bind=self.engine)
 
-    def save_track(self, track_obj: TrackModel) -> None:
+    def save_data(self, track_obj: TrackModel) -> None:
         """
         Принимает объект TrackModel.
         session.merge сам проверит ID:
