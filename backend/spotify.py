@@ -64,7 +64,7 @@ class SpotifyDownloader:
         self.context: Optional[BrowserContext] = None
         self.page: Optional[Page] = None
 
-        logr.info(f"Инициализирован Async SpotifyParser, кеш: {self.folder_n}")
+        logr.info(f"Инициализирован Async SpotifyDownloader, кеш: {self.folder_n}")
 
     async def start(self):
         """Асинхронный запуск браузера"""

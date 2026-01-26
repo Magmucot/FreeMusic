@@ -7,7 +7,7 @@ import logging as log
 
 root_dir = Path(__file__).resolve().parent.parent
 sys.path.append(str(root_dir))
-from data.db import DBManager, TrackModel
+from data.db import DBManager, TrackMetadata, Track
 
 
 log.basicConfig(
@@ -36,12 +36,11 @@ class YoutubeDownloader:
                 return info_dict["entries"][0]
             return info_dict
 
-    def _extract_data(self, info_dict: dict, codec: str) -> dict:
+    def _extract_data(self, info_dict: dict, codec: str) -> (str, str, dict):
         """
         Фильтрует 'грязный' словарь yt_dlp и приводит его к виду TrackModel.
         """
-        # Определяем путь к файлу.
-        # yt_dlp может вернуть 'requested_downloads', где лежит точный путь после конвертации
+
         filepath = None
         if "requested_downloads" in info_dict:
             filepath = info_dict["requested_downloads"][0].get("filepath")
@@ -49,17 +48,22 @@ class YoutubeDownloader:
         # Если не нашли, пытаемся угадать (для простых случаев)
         if not filepath and "filename" in info_dict:
             filepath = info_dict["filename"]
-
-        return {
-            "id": info_dict.get("id"),
-            "title": info_dict.get("title"),
-            "uploader": info_dict.get("uploader"),
-            "duration": info_dict.get("duration", 0),
-            "url": info_dict.get("webpage_url"),  # Важно: маппинг webpage_url -> url
-            "platform": info_dict.get("extractor_key", "YouTube"),  # Маппинг extractor_key -> platform
-            "filepath": filepath,
-            # created_at заполнится сам (default=datetime.now)
-        }
+        title = info_dict.get("title", "Unknown")
+        t_id = str(hash(title))
+        return (
+            t_id,
+            title,
+            {
+                "track_id": t_id,
+                "title": title,
+                "uploader": info_dict.get("uploader"),
+                "duration": info_dict.get("duration", 0),
+                "url": info_dict.get("webpage_url"),  # Важно: маппинг webpage_url -> url
+                "platform": "youtube",
+                "from_storage": False,
+                "filepath": filepath,
+            },
+        )
 
     async def download_audio(
         self, url_query: str, post_proc: bool = False, codec: str = "mp3", qual: str = "192"
@@ -95,13 +99,9 @@ class YoutubeDownloader:
 
             if info_dict:
                 # 2. Подготавливаем чистые данные для модели
-                clean_data = self._extract_data(info_dict, codec)
+                t_id, title, clean_data = self._extract_data(info_dict, codec)
 
-                # 3. Создаем объект модели
-                track = TrackModel(**clean_data)
-
-                # 4. Сохраняем в БД (также в executor, если db.save_data синхронная)
-                await loop.run_in_executor(None, self.db.save_data, track)
+                await loop.run_in_executor(None, self.db.save_data, t_id, title, clean_data)
 
                 logr.info(f"Успешно сохранено в БД: {clean_data['title']}")
 
