@@ -15,7 +15,7 @@ class BaseDownloader(ABC):
         self.save_path.mkdir(parents=True, exist_ok=True)
 
     @abstractmethod
-    def process_url(self, url: str) -> Union[TrackModel, List[TrackModel], None]:
+    async def download_audio(self, url: str) -> Union[TrackModel, List[TrackModel], None]:
         """
         Скачивает контент и возвращает объекты TrackModel.
         """

@@ -252,7 +252,7 @@ class SpotifyDownloader:
         except Exception:
             return None
 
-    async def download_track(self, index: int) -> DownloadResult:
+    async def download_audio(self, index: int) -> DownloadResult:
         metadata = await self.extract_track_metadata(index)
         if not metadata:
             return DownloadResult(TrackMetadata("Err", []), success=False, error="Metadata fail")
@@ -317,7 +317,7 @@ class SpotifyDownloader:
     async def download_single_track(self, spotify_url: str) -> DownloadResult:
         if not await self.submit_url(spotify_url):
             return DownloadResult(TrackMetadata("Err", []), success=False, error="URL fail")
-        return await self.download_track(0)
+        return await self.download_audio(0)
 
 
 # === Основной блок запуска (Entry Point) ===
