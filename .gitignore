@@ -16,3 +16,5 @@
 !DISCLAIMER.md
 **/__pycache__
 /data/songs
+!/log
+/log/
