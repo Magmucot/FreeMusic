@@ -26,7 +26,7 @@ class YoutubeDownloader:
 
         self.db_path = base_path / db_n
         logr.info(f"DB Path: {self.db_path}")
-        self.db = DBManager(f"sqlite:///data/{db_n}")
+        self.db = DBManager(f"sqlite:///data/db/{db_n}")
 
     def _sync_download(self, query: str, ydl_opts: dict):
         """Внутренний синхронный метод для работы с yt_dlp"""

@@ -53,7 +53,7 @@ class DownloadResult:
 class SpotifyDownloader:
     """Асинхронный парсер для скачивания треков"""
 
-    def __init__(self, folder_n: Union[str, Path] = "./cache", headless: bool = True):
+    def __init__(self, folder_n: Union[str, Path] = "./data/songs", headless: bool = True):
         self.folder_n = Path(folder_n)
         self.folder_n.mkdir(parents=True, exist_ok=True)
         self.site_url = "https://spotidown.app/en"
