@@ -18,7 +18,7 @@ log.basicConfig(
 logr = log.getLogger(__name__)
 
 
-class Youtube_download:
+class YoutubeDownloader:
     def __init__(self, db_n: str = "music_lib.db", folder_n: str = "songs"):
         base_path = root_dir / "data"
         self.out_path = base_path / folder_n
@@ -111,7 +111,7 @@ class Youtube_download:
 
 
 async def main():
-    yt_d = Youtube_download()
+    yt_d = YoutubeDownloader()
 
     # Теперь мы можем запускать несколько загрузок одновременно!
     tasks = [yt_d.download_audio("Never Gonna Give You Up Rick Astley")]

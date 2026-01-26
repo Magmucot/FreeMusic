@@ -3,11 +3,11 @@ from typing import Union, List
 from pathlib import Path
 import sys
 
-# Подключаем путь к data для импорта модели
 root_dir = Path(__file__).resolve().parent.parent
 sys.path.append(str(root_dir))
 
 from data.db import TrackModel
+
 
 class BaseDownloader(ABC):
     def __init__(self, save_path="songs"):

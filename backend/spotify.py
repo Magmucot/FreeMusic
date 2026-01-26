@@ -50,12 +50,12 @@ class DownloadResult:
     error: Optional[str] = None
 
 
-class SpotifyParser:
+class SpotifyDownloader:
     """Асинхронный парсер для скачивания треков"""
 
-    def __init__(self, cache_dir: Union[str, Path] = "./cache", headless: bool = True):
-        self.cache_dir = Path(cache_dir)
-        self.cache_dir.mkdir(parents=True, exist_ok=True)
+    def __init__(self, folder_n: Union[str, Path] = "./cache", headless: bool = True):
+        self.folder_n = Path(folder_n)
+        self.folder_n.mkdir(parents=True, exist_ok=True)
         self.site_url = "https://spotidown.app/en"
         self.headless = headless
 
@@ -64,7 +64,7 @@ class SpotifyParser:
         self.context: Optional[BrowserContext] = None
         self.page: Optional[Page] = None
 
-        logr.info(f"Инициализирован Async SpotifyParser, кеш: {self.cache_dir}")
+        logr.info(f"Инициализирован Async SpotifyParser, кеш: {self.folder_n}")
 
     async def start(self):
         """Асинхронный запуск браузера"""
@@ -121,7 +121,7 @@ class SpotifyParser:
         Асинхронное скачивание файла через aiohttp
         """
         try:
-            filepath = self.cache_dir / filename
+            filepath = self.folder_n / filename
             if filepath.exists():
                 logr.debug(f"Файл существует: {filename}")
                 return filepath
@@ -323,7 +323,7 @@ class SpotifyParser:
 # === Основной блок запуска (Entry Point) ===
 async def main():
     # Создаем парсер
-    parser = SpotifyParser(cache_dir="./data/songs", headless=True)
+    parser = SpotifyDownloader(folder_n="./data/songs", headless=True)
 
     try:
         # Асинхронный старт
