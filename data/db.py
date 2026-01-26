@@ -1,53 +1,57 @@
-import sqlite3
+from sqlalchemy import create_engine, Column, String, Integer, DateTime
+from sqlalchemy.orm import sessionmaker, declarative_base
+from datetime import datetime
 import logging as log
-from pathlib import Path
 
+Base = declarative_base()
 
-class DB:
-    def __init__(self, db_n="music_lib.db"):
-        base_path = Path(__file__).resolve().parent
-        self.db_path = base_path / db_n
+class TrackModel(Base):
+    __tablename__ = 'tracks'
 
+    id = Column(String, primary_key=True)
+    title = Column(String, nullable=False)
+    uploader = Column(String)
+    duration = Column(Integer, default=0)
+    url = Column(String)
+    platform = Column(String)
+    filepath = Column(String, nullable=True)
+    created_at = Column(DateTime, default=datetime.now)
+
+class DBManager:
+    def __init__(self, db_url="sqlite:///music_lib.db"):
+        self.engine = create_engine(db_url, connect_args={'check_same_thread': False})
+        
+        if "sqlite" in db_url:
+            with self.engine.connect() as con:
+                con.exec_driver_sql("PRAGMA journal_mode=WAL;")
+        
+        Base.metadata.create_all(self.engine)
+        self.Session = sessionmaker(bind=self.engine)
+
+    def save_track(self, track_obj: TrackModel) -> None:
+        """
+        Принимает объект TrackModel.
+        session.merge сам проверит ID:
+        - Если есть в БД -> обновит поля
+        - Если нет -> создаст запись
+        """
+        if not track_obj or not isinstance(track_obj, TrackModel):
+            log.warning(f"DB: Получен неверный объект для сохранения: {type(track_obj)}")
+            return
+
+        session = self.Session()
         try:
-            with sqlite3.connect(self.db_path) as conn:
-                cursor = conn.cursor()
-                cursor.execute("""
-                    CREATE TABLE IF NOT EXISTS songs (
-                        id TEXT PRIMARY KEY,
-                        title TEXT NOT NULL
-                    )
-                """)
-                cursor.execute("""
-                    CREATE TABLE IF NOT EXISTS metadata (
-                        song_id TEXT PRIMARY KEY,
-                        uploader TEXT,
-                        duration INTEGER,
-                        views INTEGER,
-                        url TEXT,
-                        platform TEXT,
-                        FOREIGN KEY (song_id) REFERENCES songs (id)
-                    )
-                """)
-                conn.commit()
-                log.info("Схема базы данных проверена/инициализирована.")
-        except sqlite3.Error as e:
-            log.error(f"Ошибка при инициализации БД: {e}")
+            session.merge(track_obj)
+            session.commit()
+            log.info(f"💾 Saved/Updated: {track_obj.title}")
+        except Exception as e:
+            log.error(f"DB Error: {e}")
+            session.rollback()
+        finally:
+            session.close()
 
-    def save_data(self, info) -> None:
-        with sqlite3.connect(self.db_path) as conn:
-            cursor = conn.cursor()
-
-            cursor.execute("INSERT OR IGNORE INTO songs (id, title) VALUES (?, ?)", (info["id"], info["title"]))
-
-            cursor.execute(
-                "INSERT OR IGNORE INTO metadata (song_id, uploader, duration, views, url, platform) VALUES (?, ?, ?, ?, ?, ?)",
-                (
-                    info["id"],
-                    info.get("uploader"),
-                    info.get("duration"),
-                    info.get("view_count"),
-                    info.get("webpage_url"),
-                    "youtube",
-                ),
-            )
-            conn.commit()
+    def get_all_tracks(self):
+        session = self.Session()
+        tracks = session.query(TrackModel).all()
+        session.close()
+        return tracks
