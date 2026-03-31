@@ -16,11 +16,16 @@ from playwright.async_api import async_playwright, Page, Browser, BrowserContext
 # Убираем лишний импорт БД, если он не нужен для демо
 # from data.db import DBManager
 
+root_dir = Path(__file__).resolve().parent.parent
+sys.path.append(str(root_dir))
+log_dir = root_dir / "log"
+log_dir.mkdir(exist_ok=True)
+
 # Настройка логирования
 log.basicConfig(
     level=log.INFO,
     format="%(asctime)s - %(levelname)s - %(message)s",
-    handlers=[log.FileHandler("log/spotify_async.log", encoding="utf-8"), log.StreamHandler()],
+    handlers=[log.FileHandler(log_dir / "spotify_async.log", encoding="utf-8"), log.StreamHandler()],
 )
 logr = log.getLogger(__name__)
 

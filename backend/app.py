@@ -7,6 +7,8 @@ import asyncio
 
 root_dir = Path(__file__).resolve().parent.parent
 sys.path.append(str(root_dir))
+log_dir = root_dir / "log"
+log_dir.mkdir(exist_ok=True)
 
 from data.db import DBManager, TrackModel
 from backend.downloader import BaseDownloader
@@ -16,7 +18,7 @@ from backend.youtube import YoutubeDownloader
 log.basicConfig(
     level=log.INFO,
     format="%(asctime)s - %(levelname)s - %(message)s",
-    handlers=[log.FileHandler("app.log", encoding="utf-8"), log.StreamHandler()],
+    handlers=[log.FileHandler(log_dir / "app.log", encoding="utf-8"), log.StreamHandler()],
 )
 
 logr = log.getLogger(__name__)
@@ -25,7 +27,7 @@ logr = log.getLogger(__name__)
 class MusicApp:
     def __init__(self):
         # 1. Инициализируем базу данных
-        self.db = DBManager("sqlite:///data/music_lib.db")
+        self.db = DBManager("sqlite:///data/db/music_lib.db")
 
         # 2. Инициализируем загрузчики
         self._yt_loader = YoutubeDownloader()
@@ -62,16 +64,30 @@ class MusicApp:
             track_data = await loader.download_audio(url)
 
             # 3. Сохранение в БД
-            if track_data:
-                if isinstance(track_data, list):
-                    for track in track_data:
-                        self.db.save_data(track)
-                    logr.info(f"Сохранено {len(track_data)} треков из: {url}")
-                else:
-                    self.db.save_data(track_data)
-                    logr.info(f"Сохранен трек: {track_data.title}")
-            else:
+            if not track_data:
                 logr.warning(f"Не удалось скачать: {url}")
+                return
+
+            if isinstance(track_data, list):
+                for track in track_data:
+                    self.db.save_data(track)
+                logr.info(f"Сохранено {len(track_data)} треков из: {url}")
+                return
+
+            # SpotifyDownloader возвращает DownloadResult
+            if hasattr(track_data, "track") and hasattr(track_data, "audio_file"):
+                model = TrackModel(
+                    title=track_data.track.name,
+                    uploader=track_data.track.artist,
+                    platform="spotify",
+                    filepath=str(track_data.audio_file) if track_data.audio_file else None,
+                )
+                self.db.save_data(model)
+                logr.info(f"Сохранен трек: {model.title}")
+                return
+
+            self.db.save_data(track_data)
+            logr.info(f"Сохранен трек: {getattr(track_data, 'title', 'unknown')}")
 
         except Exception as e:
             logr.error(f"Критическая ошибка при обработке {url}: {e}")

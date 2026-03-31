@@ -7,13 +7,15 @@ import logging as log
 
 root_dir = Path(__file__).resolve().parent.parent
 sys.path.append(str(root_dir))
+log_dir = root_dir / "log"
+log_dir.mkdir(exist_ok=True)
 from data.db import DBManager, TrackMetadata, Track
 
 
 log.basicConfig(
     level=log.INFO,
     format="%(asctime)s - %(levelname)s - %(message)s",
-    handlers=[log.FileHandler("log/youtube.log", encoding="utf-8"), log.StreamHandler()],
+    handlers=[log.FileHandler(log_dir / "youtube.log", encoding="utf-8"), log.StreamHandler()],
 )
 logr = log.getLogger(__name__)
 

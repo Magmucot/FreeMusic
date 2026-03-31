@@ -1,10 +1,39 @@
 from sqlalchemy import create_engine, Column, String, Integer, DateTime, ForeignKey, Boolean
-from sqlalchemy.orm import sessionmaker, declarative_base, relationship
+from sqlalchemy.orm import sessionmaker, declarative_base, relationship, joinedload
 from datetime import datetime
+from dataclasses import dataclass, field
+from typing import Any
 import logging as log
 import hashlib
 
 Base = declarative_base()
+
+
+@dataclass
+class TrackModel:
+    """DTO для передачи данных между загрузчиками и БД."""
+
+    title: str
+    uploader: str | None = None
+    duration: int = 0
+    url: str | None = None
+    platform: str = "unknown"
+    from_storage: bool = False
+    filepath: str | None = None
+    extra: dict[str, Any] = field(default_factory=dict)
+
+    def to_metadata(self) -> dict[str, Any]:
+        data = {
+            "title": self.title,
+            "uploader": self.uploader,
+            "duration": self.duration,
+            "url": self.url,
+            "platform": self.platform,
+            "from_storage": self.from_storage,
+            "filepath": self.filepath,
+        }
+        data.update(self.extra)
+        return data
 
 
 class Track(Base):
@@ -13,7 +42,6 @@ class Track(Base):
     id = Column(String, primary_key=True)
     title = Column(String, nullable=False)
 
-    # Отношение "один-к-одному" (uselist=False)
     metadata_info = relationship("TrackMetadata", back_populates="track", uselist=False, cascade="all, delete-orphan")
 
 
@@ -45,26 +73,38 @@ class DBManager:
         self.Session = sessionmaker(bind=self.engine)
 
     def get_data(self, track_id: str):
-        """Возвращает объект Track со всеми вложенными метаданными."""
         with self.Session() as session:
-            # .get() — самый быстрый способ поиска по Primary Key
-            track = session.get(Track, track_id)
+            track = (
+                session.query(Track)
+                .options(joinedload(Track.metadata_info))
+                .filter(Track.id == track_id)
+                .first()
+            )
             if not track:
                 log.info(f"Track with id {track_id} not found.")
                 return None
             return track
 
-    def get_id(self, text: str) -> str:
+    @staticmethod
+    def get_id(text: str) -> str:
         full_hash = hashlib.sha256(text.encode("utf-8")).hexdigest()
         return full_hash[:16]
 
-    def save_data(self, title, metadata) -> None:
+    def save_data(self, title_or_track, metadata=None) -> None:
         """
-        Принимает объект TrackModel.
-        session.merge сам проверит ID:
-        - Если есть в БД -> обновит поля
-        - Если нет -> создаст запись
+        Поддерживает 2 формата:
+        1) save_data(title: str, metadata: dict)
+        2) save_data(track: TrackModel)
         """
+        if isinstance(title_or_track, TrackModel):
+            title = title_or_track.title
+            metadata = title_or_track.to_metadata()
+        else:
+            title = str(title_or_track)
+            metadata = metadata or {"title": title}
+
+        metadata.setdefault("title", title)
+
         with self.Session() as session:
             try:
                 t_id = self.get_id(title)
