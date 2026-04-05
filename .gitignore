@@ -2,10 +2,13 @@
 
 !backend/
 !frontend/
+!frontend_old/
+!package.json
+!package-lock.json
+!tsconfig.json
 
 !data/
 !music.bd
-
 !flake.nix
 !flake.lock
 
